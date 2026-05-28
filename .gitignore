@@ -1,0 +1,68 @@
+# =============================================================
+# BarrierLakeOps MCP Server - Git 忽略清單
+# =============================================================
+
+# 環境變數 — 包含 API Key,絕對不可上傳
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 虛擬環境
+.venv/
+venv/
+env/
+ENV/
+
+# Cache 與本地資料
+.cache/
+*.cache
+*.sqlite
+*.sqlite3
+*.db
+
+# 內建大檔(若超過 GitHub 100MB 限制,建議用 Git LFS 或從外部下載)
+# data/dem/*.tif
+# data/villages/*.shp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 作業系統
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日誌
+*.log
+logs/
+
+# 暫存
+tmp/
+temp/
+*.tmp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 文件建置產物(若有)
+docs/_build/
+site/
