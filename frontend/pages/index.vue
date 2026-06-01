@@ -46,13 +46,16 @@ const goLake = (id: string) => navigateTo(`/lakes/${id}`);
 </script>
 
 <style scoped>
-.dash { padding: 18px 22px; max-width: 1320px; margin: 0 auto; }
-.grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: 64vh; min-height: 460px; }
+.dash { padding: 16px 24px 14px; }
+.grid {
+  display: grid; grid-template-columns: 340px 1fr; gap: 16px;
+  height: calc(100vh - 140px); min-height: 480px;
+}
 .grid > * { min-height: 0; }
 .mapwrap { overflow: hidden; }
-.statsbar { margin-top: 14px; font-size: 12px; text-align: center; }
+.statsbar { margin-top: 12px; font-size: 12px; text-align: center; }
 @media (max-width: 1024px) {
   .grid { grid-template-columns: 1fr; height: auto; }
-  .mapwrap { height: 360px; }
+  .mapwrap { height: 420px; }
 }
 </style>
