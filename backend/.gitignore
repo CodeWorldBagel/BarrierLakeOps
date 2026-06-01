@@ -1,0 +1,11 @@
+# 確保 direct deploy 從 backend/ 打包時不含這些(secrets / 大檔 / 快取)
+.env
+.env.*
+.venv/
+__pycache__/
+*.pyc
+.cache/
+data/raw/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

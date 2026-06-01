@@ -7,8 +7,19 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# backend/ 目錄(本檔 = backend/src/barrier_lake_ops/config.py)
-BACKEND_DIR = Path(__file__).resolve().parents[2]
+# backend/ 目錄。本機(editable)= 套件 parents[2];Zeabur(非 editable 安裝)時
+# 套件在 site-packages,故優先用「含 lake_catalog.yaml 的工作目錄」,避免找不到資料檔。
+_PKG_DIR = Path(__file__).resolve().parents[2]
+
+
+def _find_root() -> Path:
+    for c in (Path.cwd(), _PKG_DIR):
+        if (c / "lake_catalog.yaml").exists():
+            return c
+    return _PKG_DIR
+
+
+BACKEND_DIR = _find_root()
 
 
 class Settings(BaseSettings):

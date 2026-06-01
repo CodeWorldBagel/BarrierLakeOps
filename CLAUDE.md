@@ -1,0 +1,24 @@
+# BarrierLakeOps — repo notes
+
+堰湖態勢跨部會研判元件。`backend/`(FastAPI + FastMCP, Python 3.12, uv)、`frontend/`(Nuxt 3)。
+完整施工藍圖見 [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md)。
+
+## 本機開發
+```bash
+docker compose up -d postgres          # 本機 Postgres
+cd backend && uv sync && uv run uvicorn barrier_lake_ops.app:app --reload --port 8000
+cd frontend && npm install && npm run dev   # http://localhost:3000
+```
+資料前處理(DEM/村里界,已 commit 處理後小檔):`cd backend && uv run python scripts/prep_geo.py`
+
+## Zeabur 部署
+- Project ID: `6a1beb20f9a5b4afba15d962`(BarrierLakeOps, Seoul)
+- Environment ID: `6a1beb20b764eebf4f53b460`
+- Services(direct deploy;**redeploy 用 `deploy --service-id`**,不能 in-place redeploy):
+  - backend  `6a1d0023dde8027c6783f508` → https://barrierlakeops-backend.zeabur.app
+  - frontend `6a1d005c2cc61de70f4db855` → https://barrierlakeops.zeabur.app
+  - postgresql `6a1d00e72cc61de70f4db865`(template B20CX0)
+- 重新部署:`cd backend && npx zeabur@latest deploy --project-id 6a1beb20f9a5b4afba15d962 --service-id 6a1d0023dde8027c6783f508 --json`
+
+## 環境變數
+- backend/.env 與 frontend/.env 各自獨立(見各自 .env.example)。Zeabur 上環境變數已設於各 service。
