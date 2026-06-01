@@ -5,12 +5,21 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-Server-blue.svg)](https://modelcontextprotocol.io/)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/Status-MVP-orange.svg)](#)
 [![Team](https://img.shields.io/badge/Team-扣握貝果%20CodeWorldBagel-brightgreen.svg)](https://github.com/CodeWorldBagel)
 
 **2026 數位發展部「防災積木元件創新賽:公民科技拼出韌性臺灣」參賽作品**
 **參賽隊伍:扣握貝果(CodeWorldBagel)**
+
+### 🌐 線上 Demo
+
+| | 連結 |
+|---|---|
+| Web 儀表板(Reference Client) | **https://barrierlakeops.code-world-bagel.com** |
+| REST API 文件(Swagger) | **https://barrierlakeops-api.code-world-bagel.com/docs** |
+
+> 部署於 Zeabur(frontend / backend / PostgreSQL 三服務,原生建置)。6 個 Tool 串接真實政府開放資料。
 
 ---
 
@@ -173,13 +182,13 @@ Agent 自動:
 
 ### 情境 C:web 儀表板與 Chat UI
 
-對未掛載 MCP 的單位(如不便部署 Claude Desktop 的縣府人員),`web_demo/` 提供一個 Reference Client 範例:
+對未掛載 MCP 的單位(如不便部署 Claude Desktop 的縣府人員),`frontend/` 提供一個 Reference Client 範例:
 
 * **左側**:目前監測中的堰塞湖清單,標示警戒等級
 * **中央**:地圖視圖,顯示堰塞湖位置 marker、點選後渲染淹水範圍 polygon
 * **右側**:Chat UI,使用者輸入自然語言問題(如「光復鄉今晚要不要撤?」);後端 Agent 透過 LLM 串接同一組 6 個 Tool,以 SSE 即時顯示工具調用過程與結果
 
-此 reference client 與情境 A、B **共用同一份 Tool 邏輯**,僅介面型態不同;原始碼公開於 `web_demo/`,供其他單位參考改寫成自家 UI。
+此 reference client 與情境 A、B **共用同一份 Tool 邏輯**,僅介面型態不同;原始碼公開於 `frontend/`,供其他單位參考改寫成自家 UI。
 
 ---
 
