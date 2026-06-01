@@ -8,7 +8,7 @@
 <script setup lang="ts">
 const props = defineProps<{ level: string }>();
 const labels: Record<string, string> = {
-  red: "紅色",
+  red: "警戒中",
   orange: "橙色",
   yellow: "黃色",
   green: "綠色",
