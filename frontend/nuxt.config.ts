@@ -25,6 +25,14 @@ export default defineNuxtConfig({
           content: "堰塞湖跨部會即時態勢研判 — 湖清單、地圖、潰壩淹水推估與 AI 作戰助手。",
         },
       ],
+      link: [
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@500;600;700&display=swap",
+        },
+      ],
     },
   },
 });

@@ -50,10 +50,10 @@ const statusText = (s: string) =>
 </script>
 
 <style scoped>
-.lakelist { display: flex; flex-direction: column; height: 100%; }
+.lakelist { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
 .head { border-bottom: 1px solid var(--border); }
 .filters { margin-top: 8px; }
-.list { flex: 1; }
+.list { flex: 1; min-height: 0; }
 .item { display: block; padding: 11px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
 .item:hover { background: var(--panel-2); text-decoration: none; }
 .item.active { background: var(--panel-2); box-shadow: inset 3px 0 0 var(--accent); }

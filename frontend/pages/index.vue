@@ -81,10 +81,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dash { padding: 16px 20px; max-width: 1320px; margin: 0 auto; }
-.grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: 62vh; min-height: 440px; }
+.dash { padding: 18px 22px; max-width: 1320px; margin: 0 auto; }
+.grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: 60vh; min-height: 440px; }
+.grid > * { min-height: 0; }
 .mapwrap { overflow: hidden; }
-.overview { margin-top: 16px; }
+.overview { margin-top: 18px; }
 .overview .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .overview .note { font-size: 11.5px; margin-top: 10px; }
 @media (max-width: 1024px) {

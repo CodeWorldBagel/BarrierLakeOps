@@ -94,7 +94,7 @@ const brief = (r: any) =>
 .body { flex: 1; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .hint { font-size: 12px; }
 .msg { max-width: 92%; padding: 8px 11px; border-radius: 10px; font-size: 13px; white-space: pre-wrap; }
-.msg.user { align-self: flex-end; background: var(--accent); color: #04222e; }
+.msg.user { align-self: flex-end; background: var(--accent); color: #fffdf8; }
 .msg.bot { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); }
 .steps { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
 .step { font-size: 11.5px; display: flex; gap: 6px; align-items: baseline; }

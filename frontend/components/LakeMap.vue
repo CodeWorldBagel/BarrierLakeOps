@@ -59,10 +59,10 @@ function renderMarkers() {
     const c = colors[lk.alert_level] || colors.unknown;
     const m = L.circleMarker([lk.lat, lk.lon], {
       radius: lk.id === props.selectedId ? 10 : 7,
-      color: "#0b1220",
+      color: "#fffdf8",
       weight: 2,
       fillColor: c,
-      fillOpacity: 0.9,
+      fillOpacity: 0.95,
     }).addTo(markerLayer);
     m.bindTooltip(
       `${lk.name}${lk.headroom_m != null ? " · headroom " + lk.headroom_m + "m" : ""}`,
@@ -76,7 +76,7 @@ function renderFlood() {
   floodLayer.clearLayers();
   if (!props.inundation || !props.inundation.geometry) return;
   const layer = L.geoJSON(props.inundation, {
-    style: { color: "#38bdf8", weight: 1, fillColor: "#38bdf8", fillOpacity: 0.35 },
+    style: { color: "#3d7d9a", weight: 1, fillColor: "#5a9bbd", fillOpacity: 0.38 },
   }).addTo(floodLayer);
   try {
     map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 13 });
