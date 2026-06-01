@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from . import __version__
 from .config import get_settings
@@ -57,8 +58,14 @@ async def health() -> dict:
     }
 
 
-@app.get("/", tags=["meta"])
-async def root() -> dict:
+@app.get("/", include_in_schema=False)
+async def root() -> RedirectResponse:
+    """直接造訪根網址時,導向 Swagger API 文件。"""
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/info", tags=["meta"])
+async def info() -> dict:
     return {
         "name": "BarrierLakeOps API",
         "version": __version__,

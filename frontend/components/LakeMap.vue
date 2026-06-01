@@ -19,13 +19,23 @@ let markerLayer: any = null;
 let floodLayer: any = null;
 let ro: any = null;
 
-const colors: Record<string, string> = {
-  red: "#ef4444",
-  orange: "#f97316",
-  yellow: "#eab308",
-  green: "#22c55e",
-  unknown: "#94a3b8",
+// 與清單徽章一致(文青霧霾調)
+const alertColors: Record<string, string> = {
+  red: "#c0584f",
+  orange: "#cf8a4e",
+  yellow: "#c2a13a",
+  green: "#6f9669",
 };
+const statusColors: Record<string, string> = {
+  active: "#5f8a7d",
+  monitoring: "#5878a0", // 觀察中 → 霧霾藍
+  archived: "#b6ab93", // 已解除 → 暖灰
+};
+function markerColor(lk: any): string {
+  if (lk.alert_level && lk.alert_level !== "unknown")
+    return alertColors[lk.alert_level] || "#938a78";
+  return statusColors[lk.status] || "#938a78";
+}
 
 const cfg = useRuntimeConfig().public;
 
@@ -56,7 +66,7 @@ function renderMarkers() {
   markerLayer.clearLayers();
   (props.lakes || []).forEach((lk) => {
     if (lk.lat == null || lk.lon == null) return;
-    const c = colors[lk.alert_level] || colors.unknown;
+    const c = markerColor(lk);
     const m = L.circleMarker([lk.lat, lk.lon], {
       radius: lk.id === props.selectedId ? 10 : 7,
       color: "#fffdf8",
