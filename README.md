@@ -207,50 +207,59 @@ Agent 自動:
 
 ## A1. 技術選型
 
-> 本表為 MVP 階段技術棧規劃。狀態欄位:✅ 已採用(現階段已落地)、🚧 規劃中(MVP 開發期間實作)、🔮 預留(未來版本擴充)。
+> 狀態欄位:✅ 已落地(MVP 已實作)、🔮 預留(未來版本擴充)。
 
 | 層 | 選擇 | 說明 | 狀態 |
 |---|---|---|---|
-| 語言 | Python 3.11+ | 與 AI/LLM 生態最密切 | 🚧 規劃中 |
-| MCP 框架 | [FastMCP](https://github.com/modelcontextprotocol/python-sdk) | 官方 Python SDK | 🚧 規劃中 |
-| HTTP Client | `httpx` | 支援同步/非同步呼叫外部 API | 🚧 規劃中 |
-| 地理運算 | `shapely`、`geopandas` | polygon、村里界相交運算 | 🚧 規劃中 |
-| 設定檔 | YAML + [Pydantic](https://docs.pydantic.dev/) schema 驗證 | Lake Catalog 可由非工程師維護 | 🚧 規劃中 |
-| 本地 cache | SQLite + 內建 DEM/村里界檔案 | MVP 階段不依賴外部 DB | 🚧 規劃中 |
-| LLM(Tool 5) | Anthropic Claude API(可替換 OpenAI) | 態勢摘要生成 | 🚧 規劃中 |
-| 文件 | OpenAPI(Swagger)+ Markdown | 供其他系統以 HTTP 方式整合 | 🚧 規劃中 |
-| HTTP API | FastAPI(與 FastMCP 共用 Pydantic schema) | 同元件以 REST 形式同時暴露,供 web 前端消費 | 🚧 規劃中 |
-| 前端框架 | Nuxt 3(Vue 3) | Reference Client,示範 web 端消費 MCP 元件 | 🚧 規劃中 |
-| 地圖視覺化 | Leaflet + OpenStreetMap tile | GeoJSON polygon、堰塞湖位置 marker | 🚧 規劃中 |
-| Chat 串流 | Server-Sent Events(SSE) | LLM Agent 工具調用過程即時顯示 | 🚧 規劃中 |
-| 部署 | Docker + `docker-compose.yml`(雙服務) | 機關內網或雲端皆可獨立部署 | 🚧 規劃中 |
-| 版控 | [GitHub 公開 repo](https://github.com/CodeWorldBagel/BarrierLakeOps),MIT 授權 | 符合競賽簡章 §8(三)開源規範 | ✅ 已採用 |
+| 語言 | Python 3.12([uv](https://github.com/astral-sh/uv) 管理) | 與 AI/LLM 生態最密切 | ✅ 已落地 |
+| MCP 框架 | [FastMCP](https://github.com/modelcontextprotocol/python-sdk) | 6 個 Tool 以 MCP 介面暴露 | ✅ 已落地 |
+| HTTP Client | `httpx` | 非同步呼叫外部政府 API + 檔案快取 | ✅ 已落地 |
+| 地理運算 | `shapely`、`numpy`、`pyproj`、`pyshp` | polygon / 村里界相交、淹水推估;**執行期不依賴 GDAL**(可原生部署) | ✅ 已落地 |
+| 設定檔 | YAML + [Pydantic](https://docs.pydantic.dev/) schema 驗證 | Lake Catalog 可由非工程師維護 | ✅ 已落地 |
+| 資料庫 | PostgreSQL + SQLAlchemy(async) | 持久化 `briefings` 稽核(含輸入快照)+ chat 歷史;另以內建地理檔 + 檔案快取支援即時運算 | ✅ 已落地 |
+| LLM(Tool 5 + Chat) | OpenAI(`gpt-4.1`,可替換) | 態勢摘要生成 + reference client Agent | ✅ 已落地 |
+| 文件 | OpenAPI(Swagger,`/docs`)+ Markdown | 供其他系統以 HTTP 方式整合 | ✅ 已落地 |
+| HTTP API | FastAPI(與 FastMCP 共用 Pydantic schema) | 同元件以 REST 同時暴露,供 web 前端消費 | ✅ 已落地 |
+| 前端框架 | Nuxt 3(Vue 3) | Reference Client:主控台 / 作戰室 / 關於 | ✅ 已落地 |
+| 地圖視覺化 | Leaflet + OpenStreetMap tile | GeoJSON polygon、堰塞湖位置 marker | ✅ 已落地 |
+| Chat 串流 | Server-Sent Events(SSE) | LLM Agent 工具調用過程即時顯示 | ✅ 已落地 |
+| 部署 | Zeabur 原生建置(frontend/backend 不進 container)+ PostgreSQL template | 機關內網或雲端皆可獨立部署 | ✅ 已落地 |
+| 版控 | [GitHub 公開 repo](https://github.com/CodeWorldBagel/BarrierLakeOps),MIT 授權 | 符合競賽簡章 §8(三)開源規範 | ✅ 已落地 |
 
 ---
 
 ## A2. 倉庫結構
 
-下列資料夾名稱皆連結至 GitHub 上對應路徑;標註「規劃中」者為 MVP 開發中,目錄尚未上線。
+> 原規劃的 `mcp_server/` 已實作為 **`backend/`**、`web_demo/` 為 **`frontend/`**;
+> frontend/backend 採 Zeabur 原生建置(不含 Dockerfile),DB 才用 container(`docker-compose.yml`)。
 
 ```
 BarrierLakeOps/
-├── README.md / LICENSE / .gitignore / .env.example
-├── docs/                 ← 競賽提案原文與設計文件
-├── mcp_server/           ← Python:6 Tools 核心 + FastMCP + FastAPI(規劃中)
-│   ├── pyproject.toml
-│   ├── src/barrier_lake_ops/
-│   ├── tests/
-│   └── Dockerfile
-├── web_demo/             ← Nuxt 3 前端(Reference Client)(規劃中)
-│   ├── package.json
-│   ├── nuxt.config.ts
-│   ├── pages/
-│   ├── components/
-│   └── Dockerfile
-└── docker-compose.yml    ← 同時啟動 MCP/REST 服務與前端(規劃中)
+├── README.md / LICENSE / .gitignore / CLAUDE.md
+├── docker-compose.yml          ← 本機測試用 Postgres(app 不進 container)
+├── docs/                       ← 競賽提案原文 + EXECUTION_PLAN.md(含每頁匡線圖)
+├── backend/                    ← FastAPI + FastMCP(Python 3.12, uv)
+│   ├── pyproject.toml / uv.lock
+│   ├── main.py / Procfile      ← Zeabur 原生 Python 進入點
+│   ├── .env.example
+│   ├── lake_catalog.yaml        ← 堰塞湖設定(驅動 6 個 Tool,新增湖只加設定)
+│   ├── scripts/prep_geo.py      ← DEM / 村里界前處理(產出執行期小檔)
+│   ├── data/                    ← 內建地理資料(DEM .npy + 村里界 GeoJSON + 人口)
+│   └── src/barrier_lake_ops/
+│       ├── app.py / server.py    ← FastAPI(REST/SSE)/ FastMCP(MCP)
+│       ├── config.py / schemas.py / catalog.py
+│       ├── tools/               ← 6 個 Tool 純邏輯(MCP 與 REST 共用)
+│       ├── adapters/            ← moa / cwa / qlake / dem / population
+│       ├── routers/             ← REST 端點(lakes / geo / briefing / chat)
+│       ├── db/                  ← Postgres 持久化(briefings 稽核 + chat 歷史)
+│       └── agent/               ← OpenAI Chat Agent + AGENT.md(設計揭露)
+└── frontend/                   ← Nuxt 3 reference client
+    ├── package.json / nuxt.config.ts
+    ├── .env.example
+    ├── pages/                   ← index(主控台)/ lakes/[id](作戰室)/ about
+    ├── components/              ← 地圖 / 狀態 / 雨量 / 人口 / 摘要 / Chat …
+    └── composables/             ← useApi / useChatStream(SSE)
 ```
-
-> **命名更新**:原規劃的 `mcp_server/` 已實作為 **`backend/`**、`web_demo/` 為 **`frontend/`**。
 
 | 路徑 | 狀態 | 說明 |
 |---|---|---|
@@ -263,36 +272,52 @@ BarrierLakeOps/
 
 ## A3. 快速開始
 
-> 🚧 MVP 開發中,以下為預期使用流程,實際指令將於後續版本提供。
-
-### 環境準備
+### 取得專案
 
 ```bash
 git clone git@github.com:CodeWorldBagel/BarrierLakeOps.git
 cd BarrierLakeOps
-cp .env.example .env  # 填入 CWA_API_KEY 等
 ```
 
-### 在 Claude Desktop 中掛載
+### 後端(REST + MCP)
+
+```bash
+docker compose up -d postgres            # 本機 Postgres(app 不進 container)
+cd backend
+cp .env.example .env                     # 填入 CWA_API_KEY / OPENAI_API_KEY / DATABASE_URL
+uv sync                                   # 安裝依賴(Python 3.12)
+uv run python scripts/prep_geo.py         # 前處理 DEM / 村里界(產出已附於 data/)
+uv run uvicorn barrier_lake_ops.app:app --reload --port 8000
+# REST 文件: http://localhost:8000/docs
+```
+
+### 前端(Nuxt 3 reference client)
+
+```bash
+cd frontend
+cp .env.example .env                     # 設定 NUXT_PUBLIC_API_BASE 指向 backend
+npm install && npm run dev                # http://localhost:3000
+```
+
+### 在 Claude Desktop 中掛載(MCP)
 
 ```json
 // ~/Library/Application Support/Claude/claude_desktop_config.json
 {
   "mcpServers": {
     "barrier-lake-ops": {
-      "command": "python",
-      "args": ["-m", "barrier_lake_ops.server"],
-      "env": { "CWA_API_KEY": "..." }
+      "command": "uv",
+      "args": ["run", "barrier-lake-ops"],
+      "env": { "CWA_API_KEY": "...", "OPENAI_API_KEY": "..." }
     }
   }
 }
 ```
 
-### 透過 Docker 部署
+### 部署(Zeabur 原生建置)
 
-```bash
-docker compose up -d
-```
+frontend / backend 以 Zeabur 原生建置部署(不打包 container),DB 用 PostgreSQL template。
+完整步驟見 [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) §6 與 [`CLAUDE.md`](CLAUDE.md)。
 
 ---
 
@@ -318,12 +343,13 @@ docker compose up -d
 | 資料源 | 用途 | 授權條款 |
 |---|---|---|
 | [農業資料開放平臺 — 國有林堰塞湖資訊](https://data.moa.gov.tw/open_search.aspx?id=a89) | Tool 0、1 主資料源 | 政府資料開放授權條款 1.0 |
-| [中央氣象署 Opendata(O-A0002、F-D0047)](https://opendata.cwa.gov.tw/) | Tool 2 主資料源 | 政府資料開放授權條款 1.0 |
-| [農村水保署 246 警戒系統](https://246.ardswc.gov.tw/Services/OpenData) | Tool 2 補強 | 政府資料開放授權條款 1.0 |
-| [國土測繪中心 20m DEM](https://data.gov.tw/dataset/35430) | Tool 3 主資料源 | 政府資料開放授權條款 1.0 |
-| [OpenStreetMap](https://www.openstreetmap.org/) | Tool 3 河道 | ODbL,© OpenStreetMap contributors |
+| [中央氣象署 Opendata(O-A0002 觀測、F-D0047 預報)](https://opendata.cwa.gov.tw/) | Tool 2 主資料源(觀測即時;預報 best-effort) | 政府資料開放授權條款 1.0 |
+| [農村水保署 246 警戒系統](https://246.ardswc.gov.tw/Services/OpenData) | Tool 2 補強(🔮 預留;MVP 採 CWA 雨量分級研判) | 政府資料開放授權條款 1.0 |
+| [SRTM 30m 數值高程(NASA)](https://www.opentopodata.org/datasets/srtm/) | Tool 3 主資料源(MVP);生產建議改用 NLSC 20m DEM | Public Domain |
+| [國土測繪中心 20m DEM](https://data.gov.tw/dataset/35430) | Tool 3 生產目標(🔮 預留) | 政府資料開放授權條款 1.0 |
+| [OpenStreetMap](https://www.openstreetmap.org/) | 前端地圖底圖 tile(Leaflet) | ODbL,© OpenStreetMap contributors |
 | [內政部 — 村里戶數、單一年齡人口](https://data.gov.tw/dataset/77132) | Tool 4 主資料源 | 政府資料開放授權條款 1.0 |
-| 內政部 — 村里界 shapefile(data.gov.tw) | Tool 4 內建檔案 | 政府資料開放授權條款 1.0 |
+| [內政部 — 村(里)界 shapefile](https://data.gov.tw/dataset/7438) | Tool 4 內建檔案(前處理為 GeoJSON) | 政府資料開放授權條款 1.0 |
 
 **選用補強與延伸選項**
 
