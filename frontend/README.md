@@ -17,7 +17,7 @@
 
 ```bash
 cd frontend
-cp .env.example .env           # 設定 NUXT_PUBLIC_API_BASE 指向 backend
+# 建立 frontend/.env,設定 NUXT_PUBLIC_API_BASE=http://localhost:8000(指向 backend)
 npm install
 npm run dev                    # http://localhost:3000
 ```

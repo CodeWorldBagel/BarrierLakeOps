@@ -25,4 +25,4 @@ cd frontend && npm install && npm run dev   # http://localhost:3000
 - 重新部署:`cd backend && npx zeabur@latest deploy --project-id 6a1beb20f9a5b4afba15d962 --service-id 6a1d0023dde8027c6783f508 --json`
 
 ## 環境變數
-- backend/.env 與 frontend/.env 各自獨立(見各自 .env.example)。Zeabur 上環境變數已設於各 service。
+- backend/.env 與 frontend/.env 各自獨立(變數見 README §A3)。Zeabur 上環境變數已設於各 service。

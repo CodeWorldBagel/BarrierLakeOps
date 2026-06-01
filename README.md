@@ -250,7 +250,6 @@ BarrierLakeOps/
 ├── backend/                    ← FastAPI + FastMCP(Python 3.12, uv)
 │   ├── pyproject.toml / uv.lock
 │   ├── main.py / Procfile      ← Zeabur 原生 Python 進入點
-│   ├── .env.example
 │   ├── lake_catalog.yaml        ← 堰塞湖設定(驅動 6 個 Tool,新增湖只加設定)
 │   ├── scripts/prep_geo.py      ← DEM / 村里界前處理(產出執行期小檔)
 │   ├── data/                    ← 內建地理資料(DEM .npy + 村里界 GeoJSON + 人口)
@@ -264,7 +263,6 @@ BarrierLakeOps/
 │       └── agent/               ← OpenAI Chat Agent + AGENT.md(設計揭露)
 └── frontend/                   ← Nuxt 3 reference client
     ├── package.json / nuxt.config.ts
-    ├── .env.example
     ├── pages/                   ← index(主控台)/ lakes/[id](作戰室)/ about
     ├── components/              ← 地圖 / 狀態 / 雨量 / 人口 / 摘要 / Chat …
     └── composables/             ← useApi / useChatStream(SSE)
@@ -293,7 +291,8 @@ cd BarrierLakeOps
 ```bash
 docker compose up -d postgres            # 本機 Postgres(app 不進 container)
 cd backend
-cp .env.example .env                     # 填入 CWA_API_KEY / OPENAI_API_KEY / DATABASE_URL
+# 建立 backend/.env,填入:CWA_API_KEY / OPENAI_API_KEY / DATABASE_URL
+#   OPENAI_MODEL=gpt-4.1 ; CORS_ORIGINS=http://localhost:3000
 uv sync                                   # 安裝依賴(Python 3.12)
 uv run python scripts/prep_geo.py         # 前處理 DEM / 村里界(產出已附於 data/)
 uv run uvicorn barrier_lake_ops.app:app --reload --port 8000
@@ -304,7 +303,7 @@ uv run uvicorn barrier_lake_ops.app:app --reload --port 8000
 
 ```bash
 cd frontend
-cp .env.example .env                     # 設定 NUXT_PUBLIC_API_BASE 指向 backend
+# 建立 frontend/.env,設定 NUXT_PUBLIC_API_BASE=http://localhost:8000
 npm install && npm run dev                # http://localhost:3000
 ```
 

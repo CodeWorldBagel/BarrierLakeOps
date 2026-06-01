@@ -23,10 +23,11 @@
 ```bash
 docker compose up -d postgres # 在 repo 根目錄起本機 Postgres(app 不進 container)
 cd backend
-cp .env.example .env          # 填入 CWA_API_KEY / OPENAI_API_KEY / DATABASE_URL
-uv sync                       # 或 pip install -e .
-alembic upgrade head          # 建 briefings / chat 資料表
-uvicorn barrier_lake_ops.app:app --reload --port 8000
+# 建立 backend/.env,至少填入:
+#   CWA_API_KEY / OPENAI_API_KEY / DATABASE_URL
+#   OPENAI_MODEL=gpt-4.1 ; CORS_ORIGINS=http://localhost:3000
+uv sync                       # 安裝依賴(Python 3.12)
+uvicorn barrier_lake_ops.app:app --reload --port 8000  # 啟動時自動建表
 # REST 文件: http://localhost:8000/docs
 ```
 
