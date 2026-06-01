@@ -15,16 +15,9 @@
       </div>
     </div>
 
-    <div class="panel panel-pad overview">
-      <div class="head">
-        <h3>全台堰塞湖概覽摘要</h3>
-        <button class="btn sm" :disabled="ovLoading" @click="genOverview">重新生成</button>
-      </div>
-      <BriefingCard :b="overview" :loading="ovLoading" />
-      <div class="muted note">
-        共 {{ lakes.length }} 座可查詢 · 紅色警戒 {{ counts.red }} · 橙 {{ counts.orange }} ·
-        資料來源:data.moa 國有林堰塞湖 + Lake Catalog
-      </div>
+    <div class="statsbar muted">
+      共 {{ lakes.length }} 座可查詢 · 紅色警戒 {{ counts.red }} · 橙色 {{ counts.orange }}
+      · 資料來源:data.moa 國有林堰塞湖 + Lake Catalog
     </div>
   </div>
 </template>
@@ -50,44 +43,14 @@ const counts = computed(() => ({
 
 const setFilter = (v: string) => (filter.value = v);
 const goLake = (id: string) => navigateTo(`/lakes/${id}`);
-
-const overview = ref<any>(null);
-const ovLoading = ref(false);
-async function genOverview() {
-  ovLoading.value = true;
-  try {
-    const ctx = {
-      lakes: lakes.value.map((l) => ({
-        name: l.name,
-        alert_level: l.alert_level,
-        headroom_m: l.headroom_m,
-        status: l.status,
-      })),
-      data_sources: [
-        { source: "農業資料開放平臺 — 國有林堰塞湖資訊", license: "政府資料開放授權條款 1.0" },
-      ],
-    };
-    const r: any = await api.briefing(ctx, "multi_lake_overview");
-    overview.value = r.briefing;
-  } catch {
-    overview.value = null;
-  } finally {
-    ovLoading.value = false;
-  }
-}
-onMounted(() => {
-  if (lakes.value.length) genOverview();
-});
 </script>
 
 <style scoped>
 .dash { padding: 18px 22px; max-width: 1320px; margin: 0 auto; }
-.grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: 60vh; min-height: 440px; }
+.grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; height: 64vh; min-height: 460px; }
 .grid > * { min-height: 0; }
 .mapwrap { overflow: hidden; }
-.overview { margin-top: 18px; }
-.overview .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.overview .note { font-size: 11.5px; margin-top: 10px; }
+.statsbar { margin-top: 14px; font-size: 12px; text-align: center; }
 @media (max-width: 1024px) {
   .grid { grid-template-columns: 1fr; height: auto; }
   .mapwrap { height: 360px; }

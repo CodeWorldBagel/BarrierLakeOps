@@ -23,12 +23,13 @@
         :class="{ active: lk.id === selected }"
       >
         <div class="item-top">
-          <AlertBadge :level="lk.alert_level" />
+          <AlertBadge v-if="lk.alert_level !== 'unknown'" :level="lk.alert_level" />
+          <span v-else class="badge unknown">{{ statusText(lk.status) }}</span>
           <span class="name">{{ lk.name }}</span>
         </div>
         <div class="item-sub muted">
-          <span v-if="lk.headroom_m != null">headroom {{ lk.headroom_m }} m ·</span>
-          <span>{{ statusText(lk.status) }}</span>
+          <span v-if="lk.headroom_m != null">headroom {{ lk.headroom_m }} m · {{ statusText(lk.status) }}</span>
+          <span v-else-if="lk.formed_at">形成於 {{ lk.formed_at }}</span>
         </div>
       </NuxtLink>
       <div v-if="!lakes.length" class="panel-pad muted">載入中…</div>
@@ -43,7 +44,8 @@ defineEmits<{ filter: [v: string] }>();
 const filters = [
   { v: "all", t: "全部" },
   { v: "active", t: "監測中" },
-  { v: "monitoring", t: "觀察" },
+  { v: "monitoring", t: "觀察中" },
+  { v: "archived", t: "已解除" },
 ];
 const statusText = (s: string) =>
   ({ active: "監測中", monitoring: "觀察中", archived: "已解除" })[s] || s;
