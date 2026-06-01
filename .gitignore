@@ -35,9 +35,11 @@ ENV/
 *.sqlite3
 *.db
 
-# 內建大檔(若超過 GitHub 100MB 限制,建議用 Git LFS 或從外部下載)
-# data/dem/*.tif
-# data/villages/*.shp
+# 內建大檔:raw 原始下載(shapefile/csv)不提交;processed 小檔(geojson/npy/json)提交
+backend/data/raw/
+# Python venv / 套件
+.venv/
+backend/.venv/
 
 # IDE
 .vscode/
@@ -66,3 +68,4 @@ temp/
 # 文件建置產物(若有)
 docs/_build/
 site/
+.gstack/

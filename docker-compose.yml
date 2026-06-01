@@ -1,0 +1,24 @@
+# =============================================================
+# 僅本機測試用:起 Postgres container。
+# frontend / backend 不進 container(本機直接跑、Zeabur 原生建置)。
+# =============================================================
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: barrierlake-postgres
+    environment:
+      POSTGRES_USER: barrierlake
+      POSTGRES_PASSWORD: barrierlake
+      POSTGRES_DB: barrierlake
+    ports:
+      - "5432:5432"
+    volumes:
+      - barrierlake_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U barrierlake"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  barrierlake_pgdata:

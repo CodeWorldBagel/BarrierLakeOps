@@ -1,0 +1,112 @@
+<template>
+  <div ref="el" class="map" />
+</template>
+
+<script setup lang="ts">
+const props = defineProps<{
+  lakes?: any[];
+  inundation?: any;
+  selectedId?: string;
+  center?: [number, number];
+  zoom?: number;
+}>();
+const emit = defineEmits<{ select: [id: string] }>();
+
+const el = ref<HTMLElement | null>(null);
+let map: any = null;
+let L: any = null;
+let markerLayer: any = null;
+let floodLayer: any = null;
+let ro: any = null;
+
+const colors: Record<string, string> = {
+  red: "#ef4444",
+  orange: "#f97316",
+  yellow: "#eab308",
+  green: "#22c55e",
+  unknown: "#94a3b8",
+};
+
+const cfg = useRuntimeConfig().public;
+
+onMounted(async () => {
+  L = (await import("leaflet")).default;
+  map = L.map(el.value!, { zoomControl: true }).setView(
+    props.center || [23.7, 121.3],
+    props.zoom || 8,
+  );
+  L.tileLayer(cfg.mapTileUrl as string, {
+    attribution: cfg.mapAttribution as string,
+    maxZoom: 18,
+  }).addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+  floodLayer = L.layerGroup().addTo(map);
+  renderMarkers();
+  renderFlood();
+  // grid/flex 容器在 mount 後才定尺寸,Leaflet 需重新計算避免灰底
+  setTimeout(() => map && map.invalidateSize(), 200);
+  if (typeof ResizeObserver !== "undefined" && el.value) {
+    ro = new ResizeObserver(() => map && map.invalidateSize());
+    ro.observe(el.value);
+  }
+});
+
+function renderMarkers() {
+  if (!map || !markerLayer) return;
+  markerLayer.clearLayers();
+  (props.lakes || []).forEach((lk) => {
+    if (lk.lat == null || lk.lon == null) return;
+    const c = colors[lk.alert_level] || colors.unknown;
+    const m = L.circleMarker([lk.lat, lk.lon], {
+      radius: lk.id === props.selectedId ? 10 : 7,
+      color: "#0b1220",
+      weight: 2,
+      fillColor: c,
+      fillOpacity: 0.9,
+    }).addTo(markerLayer);
+    m.bindTooltip(
+      `${lk.name}${lk.headroom_m != null ? " · headroom " + lk.headroom_m + "m" : ""}`,
+    );
+    m.on("click", () => emit("select", lk.id));
+  });
+}
+
+function renderFlood() {
+  if (!map || !floodLayer) return;
+  floodLayer.clearLayers();
+  if (!props.inundation || !props.inundation.geometry) return;
+  const layer = L.geoJSON(props.inundation, {
+    style: { color: "#38bdf8", weight: 1, fillColor: "#38bdf8", fillOpacity: 0.35 },
+  }).addTo(floodLayer);
+  try {
+    map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 13 });
+  } catch {
+    /* empty geometry */
+  }
+}
+
+watch(() => props.lakes, renderMarkers, { deep: true });
+watch(() => props.selectedId, renderMarkers);
+watch(() => props.inundation, renderFlood, { deep: true });
+watch(
+  () => props.center,
+  (c) => {
+    if (map && c) map.flyTo(c, 12, { duration: 0.8 });
+  },
+);
+
+onBeforeUnmount(() => {
+  if (ro) ro.disconnect();
+  if (map) map.remove();
+});
+</script>
+
+<style scoped>
+.map {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border-radius: 12px;
+  z-index: 1;
+}
+</style>

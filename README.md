@@ -250,12 +250,14 @@ BarrierLakeOps/
 └── docker-compose.yml    ← 同時啟動 MCP/REST 服務與前端(規劃中)
 ```
 
-| 路徑 | 狀態 | GitHub |
+> **命名更新**:原規劃的 `mcp_server/` 已實作為 **`backend/`**、`web_demo/` 為 **`frontend/`**。
+
+| 路徑 | 狀態 | 說明 |
 |---|---|---|
-| `docs/` | ✅ 已上線 | [CodeWorldBagel/BarrierLakeOps · docs](https://github.com/CodeWorldBagel/BarrierLakeOps/tree/main/docs) |
-| `mcp_server/` | 🚧 規劃中 | _MVP 開發中,將上線於 `main` branch_ |
-| `web_demo/` | 🚧 規劃中 | _MVP 開發中,將上線於 `main` branch_ |
-| `docker-compose.yml` | 🚧 規劃中 | _MVP 開發中_ |
+| `docs/` | ✅ 已上線 | 競賽提案原文 + [`EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md)(含每頁匡線圖) |
+| `backend/` | ✅ 已上線 | FastAPI + FastMCP,6 Tools 串真實政府開放資料 + Postgres 持久化 |
+| `frontend/` | ✅ 已上線 | Nuxt 3 reference client:主控台 / 作戰室 / 關於 三頁 |
+| `docker-compose.yml` | ✅ 已上線 | 本機測試用 Postgres(app 走 Zeabur 原生建置,不進 container) |
 
 ---
 
