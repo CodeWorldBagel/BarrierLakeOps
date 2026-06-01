@@ -31,9 +31,6 @@
         />
         <button class="btn primary" :disabled="busy || !text.trim()" @click="send">送出</button>
       </div>
-      <div class="disclaimer">
-        ⚠ 本助手僅產生研判建議,<b>不自動發送撤離通知</b>;撤離決策由人類指揮官執行。
-      </div>
     </div>
   </div>
 </template>
@@ -102,7 +99,6 @@ const brief = (r: any) =>
 .step code { color: var(--text); }
 .step .res { font-size: 11px; }
 .composer { border-top: 1px solid var(--border); }
-.inp { margin-bottom: 8px; }
 .field { flex: 1; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 11px; font-size: 13px; }
 .field:focus { outline: none; border-color: var(--accent); }
 </style>
