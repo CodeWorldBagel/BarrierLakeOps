@@ -24,7 +24,9 @@
       >
         <div class="item-top">
           <AlertBadge v-if="lk.alert_level !== 'unknown'" :level="lk.alert_level" />
-          <span v-else class="badge unknown">{{ statusText(lk.status) }}</span>
+          <span v-else class="badge st" :class="'st-' + lk.status">
+            <span class="dot" />{{ statusText(lk.status) }}
+          </span>
           <span class="name">{{ lk.name }}</span>
         </div>
         <div class="item-sub muted">
@@ -63,4 +65,12 @@ const statusText = (s: string) =>
 .item-top .name { font-weight: 600; }
 .item-sub { font-size: 12px; margin-top: 3px; }
 .foot { border-top: 1px solid var(--border); font-size: 11px; }
+
+/* 湖況狀態徽章(無警戒資料時):觀察中 / 監測中 / 已解除 以色彩區分 */
+.badge.st-active { color: #3f7a6c; background: rgba(95,138,125,.16); border-color: rgba(95,138,125,.42); }
+.badge.st-active .dot { background: var(--accent); }
+.badge.st-monitoring { color: #4f6f97; background: rgba(79,111,151,.14); border-color: rgba(79,111,151,.4); }
+.badge.st-monitoring .dot { background: #5878a0; }
+.badge.st-archived { color: #9a8f79; background: rgba(154,143,121,.12); border-color: rgba(154,143,121,.32); }
+.badge.st-archived .dot { background: #b6ab93; }
 </style>
