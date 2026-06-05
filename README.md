@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.png" alt="BarrierLakeOps" width="560" />
+  <img src="docs/banner.png?v=2" alt="BarrierLakeOps" width="560" />
 </p>
 
 # BarrierLakeOps
