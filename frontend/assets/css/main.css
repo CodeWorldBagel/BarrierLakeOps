@@ -41,7 +41,9 @@ h1, h2, h3 { margin: 0 0 .5em; font-weight: 600; color: var(--ink); font-family:
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000;
 }
-.app-header .brand { display: flex; align-items: baseline; gap: 11px; }
+.app-header .brand { display: flex; align-items: center; gap: 11px; }
+.app-header .brand .brand-link { display: flex; align-items: center; gap: 9px; color: var(--text); text-decoration: none; }
+.app-header .brand .brand-logo { width: 32px; height: 32px; display: block; border-radius: 6px; }
 .app-header .brand b { font-size: 19px; letter-spacing: .6px; font-family: var(--serif); font-weight: 600; }
 .app-header .brand span { color: var(--muted); font-size: 12px; letter-spacing: 1px; }
 .app-header nav a { margin-left: 20px; color: var(--text); font-size: 13px; letter-spacing: .5px; }

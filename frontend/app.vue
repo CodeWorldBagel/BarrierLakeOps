@@ -2,7 +2,8 @@
   <div>
     <header class="app-header">
       <div class="brand">
-        <NuxtLink to="/" style="color: var(--text)">
+        <NuxtLink to="/" class="brand-link">
+          <img src="/logo.png" alt="BarrierLakeOps logo" class="brand-logo" />
           <b>BarrierLakeOps</b>
         </NuxtLink>
         <span>堰湖態勢跨部會研判</span>
