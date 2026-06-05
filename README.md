@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/banner.png" alt="BarrierLakeOps" width="560" />
+</p>
+
 # BarrierLakeOps
 
 > **堰湖態勢:跨部會即時研判元件**
