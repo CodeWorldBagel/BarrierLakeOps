@@ -11,6 +11,7 @@
 #   threshold.red_alert_headroom_m : 紅色警戒 headroom 門檻(公尺)
 #   threshold.orange_alert_headroom_m / yellow_alert_headroom_m
 #   upstream_weather.cwa_stations  : 對應上游 CWA 雨量站代碼
+#   landslide_source_location.centroid : [lon, lat] 可選;造成堰塞壩的崩塌源頭,僅供紀錄/顯示,不直接推算下游流向
 #   downstream_dem_bbox : [min_lon, min_lat, max_lon, max_lat] 下游 DEM 範圍
 #   moa_dataset_id      : data.moa 國有林堰塞湖資料集 id(用於即時對照)
 # =============================================================
@@ -28,7 +29,7 @@ lakes:
     status: "active"
     formed_at: "2025-07-22"
     location:
-      centroid: [121.4400, 23.7400]   # 堰塞湖位置(萬榮鄉上游)
+      centroid: [121.290715, 23.697167]   # 堰塞湖/壩體參考位置(萬榮鄉上游)
     threshold:
       overflow_elevation_m: 250.0
       red_alert_headroom_m: 30.0
@@ -37,7 +38,7 @@ lakes:
     upstream_weather:
       cwa_stations: ["C0Z100", "C0T9A0"]
     # 下游光復鄉花蓮溪/馬太鞍溪氾濫平原
-    downstream_dem_bbox: [121.38, 23.62, 121.47, 23.75]
+    downstream_dem_bbox: [121.27, 23.65, 121.48, 23.70]
     moa_dataset_id: "a89"
     reference_state:
       water_level_m: 238.0
@@ -51,8 +52,8 @@ lakes:
     name_zh: "燕子口堰塞湖"
     status: "monitoring"
     formed_at: "2024-04-03"
-    location:
-      centroid: [121.5610, 24.1730]
+    location: 
+      centroid: [121.559130, 24.173152]
     threshold:
       overflow_elevation_m: 410.0
     upstream_weather:
@@ -60,15 +61,15 @@ lakes:
     downstream_dem_bbox: [121.52, 24.13, 121.60, 24.21]
     moa_dataset_id: "a89"
 
-  - id: "tangbulan-2024"
-    name_zh: "塌補蘭溪堰塞湖"
-    status: "monitoring"
-    formed_at: "2024-09-15"
-    location:
-      centroid: [121.3980, 23.4520]
-    threshold:
-      overflow_elevation_m: 320.0
-    upstream_weather:
-      cwa_stations: ["C0T9A0"]
-    downstream_dem_bbox: [121.36, 23.41, 121.44, 23.49]
-    moa_dataset_id: "a89"
+  # - id: "tangbulan-2024"
+  #   name_zh: "塌補蘭溪堰塞湖"
+  #   status: "monitoring"
+  #   formed_at: "2024-09-15"
+  #   location:
+  #     centroid: [121.3980, 23.4520]
+  #   threshold:
+  #     overflow_elevation_m: 320.0
+  #   upstream_weather:
+  #     cwa_stations: ["C0T9A0"]
+  #   downstream_dem_bbox: [121.36, 23.41, 121.44, 23.49]
+  #   moa_dataset_id: "a89"

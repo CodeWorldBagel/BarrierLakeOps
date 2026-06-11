@@ -113,6 +113,7 @@ class UpstreamWeatherOutput(BaseModel):
 class InundationInput(BaseModel):
     breach_scenario: Literal["partial", "full"] = "full"
     breach_volume_million_m3: float | None = None
+    model_variant: Literal["mvp", "directional", "impact_area"] = "mvp"
 
 
 class InundationOutput(BaseModel):

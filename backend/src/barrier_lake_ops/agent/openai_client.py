@@ -14,7 +14,7 @@ def get_client() -> AsyncOpenAI | None:
     s = get_settings()
     if not s.openai_api_key:
         return None
-    return AsyncOpenAI(api_key=s.openai_api_key)
+    return AsyncOpenAI(api_key=s.openai_api_key, base_url="https://hnd1.aihub.zeabur.ai/")
 
 
 def get_model() -> str:

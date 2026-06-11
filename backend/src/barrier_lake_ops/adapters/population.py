@@ -9,7 +9,8 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 
-from shapely.geometry import shape
+from shapely.geometry import GeometryCollection, shape
+from shapely.ops import unary_union
 
 from ..config import get_settings
 from ..schemas import DataSource
@@ -43,15 +44,40 @@ def _load_villages():
     return villages, pop
 
 
+def _empty_result() -> dict:
+    return {
+        "affected_villages": [],
+        "total_households": 0,
+        "total_population": 0,
+        "elderly_65plus": 0,
+        "children_under6": 0,
+    }
+
+
+def _shape_geojson(geojson: dict):
+    if geojson.get("type") == "FeatureCollection":
+        geoms = []
+        for feat in geojson.get("features", []):
+            geom = feat.get("geometry") if isinstance(feat, dict) else None
+            if geom:
+                geoms.append(shape(geom))
+        return unary_union(geoms) if geoms else GeometryCollection()
+
+    return shape(geojson.get("geometry", geojson))
+
+
 def intersect_population(polygon_geojson: dict) -> dict:
     """回傳受影響村里(與輸入 polygon 相交)及人口統計。"""
-    geom = polygon_geojson.get("geometry", polygon_geojson)
     try:
-        flood = shape(geom)
+        flood = _shape_geojson(polygon_geojson)
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"無效的 GeoJSON polygon: {exc}") from exc
+    if flood.is_empty:
+        return _empty_result()
     if not flood.is_valid:
         flood = flood.buffer(0)
+    if flood.is_empty:
+        return _empty_result()
 
     villages, pop = _load_villages()
     affected = []

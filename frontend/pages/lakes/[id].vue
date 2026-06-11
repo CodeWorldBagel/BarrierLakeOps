@@ -31,13 +31,20 @@
               <option value="full">全潰壩 (full)</option>
               <option value="partial">部分潰壩 (partial)</option>
             </select>
+            <label class="muted">模型</label>
+            <select v-model="floodModel" class="sel">
+              <option value="directional">水量分配實驗版</option>
+              <option value="impact_area">可能影響範圍</option>
+              <option value="mvp">MVP 原模型</option>
+            </select>
             <button class="btn primary" :disabled="floodLoading" @click="estimate">
               {{ floodLoading ? "推估中…" : "推估淹水範圍" }}
             </button>
           </div>
+          <div v-if="floodError" class="error">{{ floodError }}</div>
           <div v-if="inundation" class="row stat">
-            <span class="tag">最大深度 {{ inundation.max_depth_m_estimate }} m</span>
-            <span class="tag">抵達 {{ inundation.leading_edge_arrival_minutes }} 分</span>
+            <span class="tag">最大深度 {{ inundation.max_depth_m_estimate ?? "--" }} m</span>
+            <span class="tag">抵達 {{ inundation.leading_edge_arrival_minutes ?? "--" }} 分</span>
           </div>
           <div v-if="inundation" class="disclaimer">⚠ {{ inundation.disclaimer }}</div>
         </div>
@@ -79,16 +86,27 @@ const center = computed<[number, number] | undefined>(() =>
 );
 
 const scenario = ref("full");
+const floodModel = ref("directional");
 const inundation = ref<any>(null);
 const inundationFeature = computed(() => inundation.value?.inundation_polygon);
 const population = ref<any>(null);
 const floodLoading = ref(false);
+const floodError = ref("");
+
+function errorMessage(err: any) {
+  return err?.data?.detail || err?.message || "推估淹水範圍失敗，請稍後再試。";
+}
 
 async function estimate() {
   floodLoading.value = true;
+  floodError.value = "";
   try {
-    inundation.value = await api.inundation(id, scenario.value);
+    inundation.value = await api.inundation(id, scenario.value, {
+      model_variant: floodModel.value,
+    });
     population.value = await api.population(inundation.value.inundation_polygon);
+  } catch (err: any) {
+    floodError.value = errorMessage(err);
   } finally {
     floodLoading.value = false;
   }
@@ -149,6 +167,7 @@ onMounted(loadHistory);
 .controls .row { align-items: center; }
 .controls .stat { margin-top: 8px; }
 .controls .disclaimer { margin-top: 8px; }
+.controls .error { margin-top: 8px; color: #fecaca; font-size: 13px; }
 .genbar { align-items: center; }
 .genbar .note { font-size: 11.5px; }
 @media (max-width: 1200px) {

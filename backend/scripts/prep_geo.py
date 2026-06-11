@@ -133,9 +133,16 @@ def process_population(kept_codes: set[str]) -> None:
     print(f"[population] matched {len(pop)} 村里人口")
 
 
-def fetch_dem(grid: int = 40) -> None:
+def fetch_dem(grid: int = 40, lake_id: str | None = None) -> None:
     DEM_DIR.mkdir(parents=True, exist_ok=True)
-    for lake_id, bbox in _lake_bboxes():
+    bboxes = _lake_bboxes()
+    if lake_id:
+        bboxes = [(lid, bbox) for lid, bbox in bboxes if lid == lake_id]
+        if not bboxes:
+            print(f"[dem] lake_id not found or no downstream_dem_bbox: {lake_id}")
+            return
+
+    for lake_id, bbox in bboxes:
         minlon, minlat, maxlon, maxlat = bbox
         lons = [minlon + (maxlon - minlon) * i / (grid - 1) for i in range(grid)]
         lats = [minlat + (maxlat - minlat) * j / (grid - 1) for j in range(grid)]
@@ -174,15 +181,26 @@ def fetch_dem(grid: int = 40) -> None:
             ),
             encoding="utf-8",
         )
-        print(f"[dem] {lake_id}: {grid}x{grid} grid saved")
+        print(
+            f"[dem] {lake_id}: {grid}x{grid} grid saved; "
+            f"bbox={bbox}; row0=north; source=SRTM 30m"
+        )
 
 
 def main() -> None:
     do_dem = "--no-dem" not in sys.argv
+    lake_id = None
+    if "--lake-id" in sys.argv:
+        idx = sys.argv.index("--lake-id")
+        try:
+            lake_id = sys.argv[idx + 1]
+        except IndexError:
+            raise SystemExit("--lake-id requires a value")
+
     kept = process_villages()
     process_population(kept)
     if do_dem:
-        fetch_dem()
+        fetch_dem(lake_id=lake_id)
     print("prep_geo done.")
 
 
