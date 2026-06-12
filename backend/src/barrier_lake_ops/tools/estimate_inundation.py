@@ -7,6 +7,7 @@ from ..adapters.dem import (
     estimate_flood,
     estimate_flood_directional,
     estimate_flood_impact_area,
+    estimate_flood_seed_fill,
     has_dem,
 )
 from ..catalog import load_catalog
@@ -15,6 +16,7 @@ from ..schemas import InundationOutput
 MODEL = "BarrierLakeOps MVP bathtub-fill v0.1 (SRTM 30m, 容量守恆 + 連通域)"
 MODEL_DIRECTIONAL = "BarrierLakeOps experimental directional valley-fill v0.1 (SRTM 30m, 方向剖面推進)"
 MODEL_IMPACT_AREA = "BarrierLakeOps experimental impact-area v0.1 (SRTM 30m, 下游可能影響範圍)"
+MODEL_SEED_FILL = "BarrierLakeOps experimental seed-fill v0.1 (SRTM 30m, 壩體 8 鄰格逐步填水)"
 DISCLAIMER = (
     "本淹水範圍為 MVP 簡化模型估算(以 SRTM 30m DEM 容量守恆淹沒推估),"
     "僅供緊急研判輔助,非工程級水文模型;生產應用建議改用國土測繪中心 20m DEM "
@@ -35,6 +37,8 @@ async def estimate_inundation(
         model_used = MODEL_DIRECTIONAL
     elif model_variant == "impact_area":
         model_used = MODEL_IMPACT_AREA
+    elif model_variant == "seed_fill":
+        model_used = MODEL_SEED_FILL
     else:
         model_used = MODEL
 
@@ -69,6 +73,12 @@ async def estimate_inundation(
         )
         model_used = MODEL_IMPACT_AREA
         model_note = "模型:impact-area,"
+    elif model_variant == "seed_fill":
+        res = estimate_flood_seed_fill(
+            lake_id, volume_m3, (lake.location.lon, lake.location.lat)
+        )
+        model_used = MODEL_SEED_FILL
+        model_note = "模型:seed-fill,"
     else:
         res = estimate_flood(
             lake_id, volume_m3, (lake.location.lon, lake.location.lat)

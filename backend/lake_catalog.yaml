@@ -73,3 +73,793 @@ lakes:
   #     cwa_stations: ["C0T9A0"]
   #   downstream_dem_bbox: [121.36, 23.41, 121.44, 23.49]
   #   moa_dataset_id: "a89"
+
+  # ---- 歷史案例（由 docs/歷史堰塞湖案例清冊-20260612223130.xlsx 整理）----
+  # 欄位以現有 Lake Catalog schema 可承載者為主；原清冊沒有的 threshold/weather/DEM 欄位不填。
+  - id: "caoling-1979"
+    name_zh: "草嶺"
+    status: "archived"
+    formed_at: "1979-08-15"
+    location:
+      centroid: [120.672468, 23.575983]
+    reference_state:
+      storage_million_m3: 40
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 雲林縣; 鄉鎮: 古坑鄉; 村里: 草嶺村; 誘因: 降雨; 事件: 0815豪雨; 持續時間(日): 9; 潰決時間: 1979/08/24; 潰決原因: 豪雨沖刷; 坐落區位: 河川; 原始項次: 1"
+
+  - id: "danda-1993"
+    name_zh: "丹大溪"
+    status: "archived"
+    location:
+      centroid: [121.064322, 23.746566]
+    reference_state:
+      storage_million_m3: 0.02
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 信義鄉; 村里: 地利村; 地標: (丹大第40林班); 誘因: 降雨; 形成時間: 1993; 坐落區位: 林班地; 原始項次: 2"
+
+  - id: "jiufenershan-jiucaihu-1999"
+    name_zh: "九份二山(韭菜湖溪)"
+    status: "monitoring"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.851258, 23.950607]
+    reference_state:
+      storage_million_m3: 0.68
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 國姓鄉; 村里: 南港村; 地標: 南港溪支流木屐蘭溪上游之澀仔坑溪與韭菜湖溪匯流處; 誘因: 地震; 事件: 九二一地震; 持續時間(日): 持續至今; 坐落區位: 山坡地; 原始項次: 3"
+
+  - id: "jiufenershan-sezikeng-1999"
+    name_zh: "九份二山(澀仔坑溪)"
+    status: "monitoring"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.847574, 23.950585]
+    reference_state:
+      storage_million_m3: 1.0897
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 國姓鄉; 村里: 南港村; 地標: 南港溪支流木屐蘭溪上游之澀仔坑溪與韭菜湖溪匯流處; 誘因: 地震; 事件: 九二一地震; 持續時間(日): 持續至今; 坐落區位: 山坡地; 原始項次: 4"
+
+  - id: "daan-neiwan-duanceng-1999"
+    name_zh: "大安溪內灣段(斷層)"
+    status: "archived"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.835253, 24.288733]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺中市; 鄉鎮: 東勢區; 村里: 下新里; 地標: 大安溪中游，位於卓蘭鎮內灣與上新交界處，斷層隆起阻塞河道; 誘因: 地震; 事件: 九二一地震; 坐落區位: 河川; 原始項次: 5"
+
+  - id: "shipan-xianjin-1999"
+    name_zh: "石盤溪(線浸)"
+    status: "archived"
+    formed_at: "1999-09-26"
+    location:
+      centroid: [120.822187, 23.755588]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 鹿谷鄉; 村里: 永隆村; 地標: 石盤溪上游線浸山區(台大實驗林第10林班內); 誘因: 地震; 事件: 九二一地震; 潰決原因: 自然溢流; 坐落區位: 山坡地; 原始項次: 6"
+
+  - id: "hanxi-1999"
+    name_zh: "旱溪"
+    status: "archived"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.739261, 24.247796]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺中市; 鄉鎮: 豐原區; 村里: 北陽里; 地標: 大里溪支流旱溪，觀音橋至南陽橋間; 誘因: 地震; 事件: 九二一地震; 坐落區位: 河川; 原始項次: 7"
+
+  - id: "shalianhe-duanceng-1999"
+    name_zh: "沙漣河(斷層)"
+    status: "archived"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.818347, 24.283414]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺中市; 鄉鎮: 東勢區; 村里: 興隆里; 地標: 大甲溪支流，位於東勢鎮興隆橋下游50公尺，接近石岡水庫，斷層隆起阻塞河道; 誘因: 地震; 事件: 九二一地震; 坐落區位: 河川; 原始項次: 8"
+
+  - id: "caoling-1999"
+    name_zh: "草嶺"
+    status: "archived"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.674865, 23.573279]
+    reference_state:
+      storage_million_m3: 46
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 雲林縣; 鄉鎮: 古坑鄉; 村里: 草嶺村; 地標: 濁水溪支流清水溪，掘沓山; 誘因: 地震; 事件: 九二一地震; 持續時間(日): 1746; 坐落區位: 河川; 原始項次: 9"
+
+  - id: "xueshankeng-1999"
+    name_zh: "雪山坑溪"
+    status: "archived"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.983842, 24.304623]
+    reference_state:
+      storage_million_m3: 0.16
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺中市; 鄉鎮: 和平區; 村里: 達觀里; 地標: 大安溪支流雪山坑溪，達觀村雪山花園農場處(大安溪第113林班); 誘因: 地震; 事件: 九二一地震; 坐落區位: 林班地; 原始項次: 10"
+
+  - id: "toubian-keng-longbaoqiao-duanceng-1999"
+    name_zh: "頭汴坑溪龍寶橋(斷層)"
+    status: "archived"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.749639, 24.122514]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺中市; 鄉鎮: 太平區; 村里: 頭汴里; 地標: 龍寶橋上游200公尺; 誘因: 地震; 事件: 九二一地震; 坐落區位: 山坡地; 原始項次: 11"
+
+  - id: "shigupan-1999"
+    name_zh: "石鼓盤溪"
+    status: "monitoring"
+    formed_at: "1999-09-21"
+    location:
+      centroid: [120.799745, 23.579152]
+    reference_state:
+      storage_million_m3: 0.231
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 嘉義縣; 鄉鎮: 阿里山鄉; 村里: 豐山村; 地標: (水漾森林，阿里山第52林班); 誘因: 地震; 事件: 九二一地震; 持續時間(日): 持續至今; 坐落區位: 林班地; 原始項次: 12"
+
+  - id: "xinwulu-2002"
+    name_zh: "新武呂溪"
+    status: "archived"
+    location:
+      centroid: [121.025455, 23.179833]
+    reference_state:
+      storage_million_m3: 0.45
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 海端鄉; 村里: 霧鹿村; 地標: 霧鹿天龍橋上游; 誘因: 降雨; 坐落區位: 山坡地; 原始項次: 13"
+
+  - id: "zhiben-2005"
+    name_zh: "知本溪"
+    status: "archived"
+    formed_at: "2005-10-17"
+    location:
+      centroid: [120.974726, 22.677051]
+    reference_state:
+      storage_million_m3: 0.398
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 金峰鄉; 村里: 嘉蘭村; 地標: (台東第33林班); 誘因: 地震; 坐落區位: 林班地; 原始項次: 14"
+
+  - id: "longquan-2006"
+    name_zh: "龍泉溪"
+    status: "archived"
+    formed_at: "2006-07-15"
+    location:
+      centroid: [121.180316, 23.172887]
+    reference_state:
+      storage_million_m3: 1
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 海端鄉; 村里: 廣原村; 地標: (關山第3林班); 誘因: 颱風、地震; 事件: 碧利斯颱風、0716地震; 持續時間(日): 1468; 坐落區位: 林班地; 原始項次: 15"
+
+  - id: "dalun-2006"
+    name_zh: "大崙溪"
+    status: "archived"
+    formed_at: "2006-08-28"
+    location:
+      centroid: [121.059892, 23.125162]
+    reference_state:
+      storage_million_m3: 0.08
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 海端鄉; 村里: 霧鹿村; 地標: (關山第28林班); 持續時間(日): 1424; 坐落區位: 林班地; 原始項次: 16"
+
+  - id: "heliuping-2008"
+    name_zh: "合流坪"
+    status: "archived"
+    formed_at: "2008-03-12"
+    location:
+      centroid: [121.000392, 23.783792]
+    reference_state:
+      storage_million_m3: 2
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 信義鄉; 村里: 地利村; 地標: (巒大第180林班); 誘因: 崩塌; 坐落區位: 林班地; 原始項次: 17"
+
+  - id: "taluowan-2008"
+    name_zh: "塔羅灣溪"
+    status: "archived"
+    formed_at: "2008-09-14"
+    location:
+      centroid: [121.189083, 24.031070]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 仁愛鄉; 村里: 精英村; 誘因: 颱風; 事件: 辛樂克颱風; 持續時間(日): 1; 坐落區位: 山坡地; 原始項次: 18"
+
+  - id: "koushe-2009"
+    name_zh: "口社溪"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.692804, 22.820106]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 屏東縣; 鄉鎮: 三地門鄉; 村里: 大社村; 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 4; 坐落區位: 山坡地; 原始項次: 19"
+
+  - id: "shiwen-2009"
+    name_zh: "士文溪"
+    status: "archived"
+    formed_at: "2009-08-14"
+    location:
+      centroid: [120.699422, 22.393508]
+    reference_state:
+      storage_million_m3: 1.22
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 屏東縣; 鄉鎮: 春日鄉; 村里: 力里村; 地標: (潮州第20林班); 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 437; 坐落區位: 山坡地; 原始項次: 20"
+
+  - id: "taimali-baoshengshe-2009"
+    name_zh: "太麻里溪(包盛社)"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.819182, 22.579587]
+    reference_state:
+      storage_million_m3: 5.33
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 金峰鄉; 村里: 嘉蘭村; 地標: (包盛社、大武第9林班); 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 433; 坐落區位: 林班地; 原始項次: 21"
+
+  - id: "mugua-tongmen-2009"
+    name_zh: "木瓜溪銅門"
+    status: "archived"
+    formed_at: "2009-01-06"
+    location:
+      centroid: [121.446472, 23.994482]
+    reference_state:
+      storage_million_m3: 0.11
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 秀林鄉; 村里: 銅門村; 地標: (木瓜山第19林班); 誘因: 地震; 持續時間(日): 193; 坐落區位: 林班地; 原始項次: 22"
+
+  - id: "butangbunas-2009"
+    name_zh: "布唐布那斯溪"
+    status: "archived"
+    location:
+      centroid: [120.791072, 23.193766]
+    reference_state:
+      storage_million_m3: 0.7
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 勤和里; 誘因: 颱風; 事件: 莫拉克颱風; 形成時間: 2010/9; 坐落區位: 河川; 原始項次: 23"
+
+  - id: "rureng-mudan-2009"
+    name_zh: "汝仍溪(牡丹村)"
+    status: "archived"
+    location:
+      centroid: [120.794827, 22.177778]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 屏東縣; 鄉鎮: 牡丹鄉; 村里: 牡丹村; 地標: (牡丹村、恆春第16林班); 誘因: 降雨; 坐落區位: 林班地; 原始項次: 24"
+
+  - id: "heshe-2009"
+    name_zh: "和社溪"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.839475, 23.496483]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 信義鄉; 村里: 神木村; 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): <24HR; 坐落區位: 山坡地; 原始項次: 25"
+
+  - id: "heshe-toukengyexi-2009"
+    name_zh: "和社溪(頭坑野溪流出)"
+    status: "archived"
+    location:
+      centroid: [120.864305, 23.563365]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 信義鄉; 村里: 神木村; 誘因: 颱風; 事件: 莫拉克颱風; 坐落區位: 河川; 原始項次: 26"
+
+  - id: "lakesi-meilan-2009"
+    name_zh: "拉克斯溪(梅蘭村)"
+    status: "monitoring"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.840982, 23.226343]
+    reference_state:
+      storage_million_m3: 0.74
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 拉芙蘭里; 地標: (梅蘭村；荖濃溪第114林班); 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 持續至今; 坐落區位: 林班地; 原始項次: 27"
+
+  - id: "youcheliao-2009"
+    name_zh: "油車寮"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.705451, 23.533536]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 嘉義縣; 鄉鎮: 梅山鄉; 村里: 太和村; 誘因: 颱風; 事件: 莫拉克颱風; 坐落區位: 山坡地; 原始項次: 28"
+
+  - id: "laonong-meishankou-2009"
+    name_zh: "荖濃溪(梅山口)"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.811541, 23.268455]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 拉芙蘭里; 地標: (梅山口；旗山第77林班); 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 3; 坐落區位: 林班地; 原始項次: 29"
+
+  - id: "jianshan-gaoshi-df064-2009"
+    name_zh: "建山(高市DF064)"
+    status: "archived"
+    location:
+      centroid: [120.689949, 23.102771]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 建山里; 地標: 建山(高市DF064); 誘因: 降雨; 坐落區位: 山坡地; 原始項次: 30"
+
+  - id: "laonong-shangyou-zhuliu-2009"
+    name_zh: "荖濃溪上游主流堰塞湖"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.918715, 23.335589]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 梅山里; 地標: (玉山第41林班); 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 3; 坐落區位: 林班地; 原始項次: 31"
+
+  - id: "laonong-zhiliu-2009"
+    name_zh: "荖濃溪支流堰塞湖"
+    status: "archived"
+    location:
+      centroid: [120.815964, 23.264415]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 拉芙蘭里; 誘因: 颱風; 事件: 莫拉克颱風; 坐落區位: 山坡地; 原始項次: 32"
+
+  - id: "laonong-zhiliu-zhuokou-2009"
+    name_zh: "荖濃溪支流濁口溪堰塞湖"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.654490, 22.885402]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 茂林區; 村里: 茂林里; 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 11; 坐落區位: 河川; 原始項次: 33"
+
+  - id: "laonong-zhiliu-baolai-shangyou-2009"
+    name_zh: "荖濃溪支流寶來溪上游堰塞湖"
+    status: "archived"
+    location:
+      centroid: [120.859795, 23.157205]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 寶山里; 地標: 神池營地; 荖濃溪第97林班; 誘因: 颱風; 事件: 莫拉克颱風; 坐落區位: 林班地; 原始項次: 34"
+
+  - id: "laonong-fuxingbuluo-2009"
+    name_zh: "荖濃溪復興部落堰塞湖"
+    status: "archived"
+    location:
+      centroid: [120.803141, 23.217739]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 復興里; 地標: 復興部落; 誘因: 颱風; 事件: 莫拉克颱風; 坐落區位: 山坡地; 原始項次: 35"
+
+  - id: "taosai-2009"
+    name_zh: "陶塞溪"
+    status: "archived"
+    formed_at: "2009-12-31"
+    location:
+      centroid: [121.483078, 24.232057]
+    reference_state:
+      storage_million_m3: 0.2
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 秀林鄉; 村里: 富世村; 地標: 太魯閣梅園竹村步道2.9公里處溪谷; 立霧溪第46林班; 誘因: 崩塌; 持續時間(日): 2; 坐落區位: 林班地; 原始項次: 36"
+
+  - id: "houku-2009"
+    name_zh: "後堀溪"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.617601, 23.189078]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺南市; 鄉鎮: 南化區; 村里: 闢山里; 地標: 平坑產業道路鎮安宮; 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 9; 坐落區位: 林班地; 原始項次: 37"
+
+  - id: "qishan-xiaolincun-2009"
+    name_zh: "旗山溪小林村堰塞湖"
+    status: "archived"
+    formed_at: "2009-08-09"
+    location:
+      centroid: [120.645009, 23.167587]
+    reference_state:
+      storage_million_m3: 10
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 甲仙區; 村里: 小林里; 地標: 小林村; (旗山第21林班); 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 1.5HR; 坐落區位: 林班地; 原始項次: 38"
+
+  - id: "qishan-shangyou-namaxia-2009"
+    name_zh: "旗山溪上游堰塞湖(那瑪夏鄉)"
+    status: "archived"
+    formed_at: "2009-08-08"
+    location:
+      centroid: [120.745640, 23.320874]
+    reference_state:
+      storage_million_m3: 1.57
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 那瑪夏區; 村里: 達卡努瓦里; 地標: 那瑪夏民生村上游七公里處;(那瑪夏鄉；旗山第16林班); 誘因: 颱風; 事件: 莫拉克颱風; 持續時間(日): 730; 坐落區位: 林班地; 原始項次: 39"
+
+  - id: "xinzhu-wufeng-2011"
+    name_zh: "新竹五峰"
+    status: "archived"
+    formed_at: "2011-11-24"
+    location:
+      centroid: [121.111513, 24.592139]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 新竹縣; 鄉鎮: 五峰鄉; 村里: 桃山村; 誘因: 崩塌; 持續時間(日): 1; 坐落區位: 河川; 原始項次: 40"
+
+  - id: "butangbunas-2012"
+    name_zh: "布唐布那斯溪"
+    status: "archived"
+    formed_at: "2012-06-10"
+    location:
+      centroid: [120.791011, 23.195391]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 桃源區; 村里: 桃源里; 誘因: 降雨; 事件: 2012年0610豪雨; 坐落區位: 河川; 原始項次: 41"
+
+  - id: "heshe-toukengyexi-2012"
+    name_zh: "和社溪(頭坑野溪流出)"
+    status: "archived"
+    formed_at: "2012-06-12"
+    location:
+      centroid: [120.872491, 23.567526]
+    reference_state:
+      storage_million_m3: 0.06
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 信義鄉; 村里: 神木村; 地標: 頭坑溪，隆華橋上游700公尺; 誘因: 降雨; 事件: 2012年0610豪雨; 坐落區位: 河川; 原始項次: 42"
+
+  - id: "meixi-2012"
+    name_zh: "眉溪"
+    status: "archived"
+    formed_at: "2012-06-12"
+    location:
+      centroid: [121.113452, 24.009140]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 仁愛鄉; 村里: 南豐村; 地標: 仁愛鄉省道14號公路74.5k仁愛橋上游處; 誘因: 降雨; 事件: 2012年0610豪雨; 持續時間(日): 1HR; 坐落區位: 山坡地; 原始項次: 43"
+
+  - id: "qishan-yixi-2012"
+    name_zh: "旗山溪一溪"
+    status: "archived"
+    formed_at: "2012-06-21"
+    location:
+      centroid: [120.728613, 23.293601]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 高雄市; 鄉鎮: 那瑪夏區; 村里: 達卡努瓦里; 誘因: 颱風; 事件: 2012年0610豪雨及泰利颱風; 坐落區位: 山坡地; 原始項次: 44"
+
+  - id: "nanqingshuigou-2013"
+    name_zh: "南清水溝溪"
+    status: "archived"
+    formed_at: "2013-06-02"
+    location:
+      centroid: [120.803760, 23.731772]
+    reference_state:
+      storage_million_m3: 0.01
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 鹿谷鄉; 村里: 鳳凰村; 地標: 鳳凰谷瀑谷上游300公尺; 誘因: 地震; 事件: 2013年0602地震; 坐落區位: 山坡地; 原始項次: 45"
+
+  - id: "lugu-2013"
+    name_zh: "鹿谷"
+    status: "archived"
+    location:
+      centroid: [120.798516, 23.735378]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 鹿谷鄉; 村里: 鳳凰村; 地標: 鳳凰谷瀑谷下游400公尺; 誘因: 地震; 事件: 2013年0602地震; 坐落區位: 山坡地; 原始項次: 46"
+
+  - id: "waheier-2014"
+    name_zh: "瓦黑爾溪"
+    status: "archived"
+    formed_at: "2014-03-11"
+    location:
+      centroid: [121.475823, 24.190103]
+    reference_state:
+      storage_million_m3: 0.0095
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 秀林鄉; 村里: 富世村; 地標: (立霧溪第54林班); 持續時間(日): 135; 坐落區位: 林班地; 原始項次: 47"
+
+  - id: "hayilaluo-2014"
+    name_zh: "哈伊拉羅溪"
+    status: "archived"
+    location:
+      centroid: [121.059799, 23.571468]
+    reference_state:
+      storage_million_m3: 0.06
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 信義鄉; 村里: 東埔村; 地標: (巒大第205林班); 誘因: 颱風; 持續時間(日): 93; 坐落區位: 林班地; 原始項次: 48"
+
+  - id: "junda-danda-2014"
+    name_zh: "郡大溪(丹大溪)"
+    status: "archived"
+    location:
+      centroid: [121.112813, 23.736506]
+    reference_state:
+      storage_million_m3: 0.13
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 信義鄉; 村里: 地利村; 地標: (丹大第17林班); 坐落區位: 林班地; 原始項次: 49"
+
+  - id: "luye-taolin-2014"
+    name_zh: "鹿野溪桃林"
+    status: "archived"
+    location:
+      centroid: [120.927917, 22.897086]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 延平鄉; 村里: 紅葉村; 地標: 鹿野溪上游北絲鬮溪(延平第35林班); 形成時間: 2014/10/21至26間; 坐落區位: 林班地; 原始項次: 50"
+
+  - id: "wulai-2015"
+    name_zh: "烏來堰塞湖"
+    status: "archived"
+    formed_at: "2015-08-14"
+    location:
+      centroid: [121.519065, 24.819969]
+    reference_state:
+      storage_million_m3: 0.006
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 新北市; 鄉鎮: 烏來區; 村里: 福山村; 地標: 烏來第17林班; 誘因: 颱風; 事件: 蘇迪勒颱風; 坐落區位: 林班地; 原始項次: 51"
+
+  - id: "tacijili-2015"
+    name_zh: "塔次基里溪"
+    status: "archived"
+    formed_at: "2015-08-12"
+    location:
+      centroid: [121.426847, 24.167422]
+    reference_state:
+      storage_million_m3: 0.11
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 秀林鄉; 村里: 富世村; 地標: 六十四、七十七林班地交界處; 誘因: 颱風; 事件: 蘇迪勒颱風; 持續時間(日): 40; 坐落區位: 林班地; 原始項次: 52"
+
+  - id: "liwu-zhuilu-2016"
+    name_zh: "立霧溪錐麓"
+    status: "archived"
+    formed_at: "2016-01-27"
+    location:
+      centroid: [121.551615, 24.171934]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 秀林鄉; 村里: 富世村; 地標: 中橫公路臺8線176.3k、立霧溪第20林班; 持續時間(日): 175; 坐落區位: 林班地; 原始項次: 53"
+
+  - id: "taoyuan-xiayun-2016"
+    name_zh: "桃園霞雲溪"
+    status: "archived"
+    formed_at: "2016-08-19"
+    location:
+      centroid: [121.373215, 24.807502]
+    reference_state:
+      storage_million_m3: 0.0027
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 桃園市; 鄉鎮: 復興區; 村里: 霞雲里; 誘因: 降雨; 坐落區位: 山坡地; 原始項次: 54"
+
+  - id: "luye-shangyou-zhiliu-songfeng-2016"
+    name_zh: "鹿野溪上游支流(松風溪)"
+    status: "archived"
+    location:
+      centroid: [120.918295, 22.849497]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 延平鄉; 村里: 紅葉村; 地標: (延平第35林班); 坐落區位: 林班地; 原始項次: 55"
+
+  - id: "taiyuan-nan-2016"
+    name_zh: "泰源南溪"
+    status: "archived"
+    formed_at: "2016-07-09"
+    location:
+      centroid: [121.228895, 22.945243]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 東河鄉; 村里: 尚德村; 誘因: 颱風; 事件: 尼伯特颱風; 坐落區位: 山坡地; 原始項次: 56"
+
+  - id: "wanli-2016"
+    name_zh: "萬里溪"
+    status: "archived"
+    formed_at: "2016-03-07"
+    location:
+      centroid: [121.374337, 23.736528]
+    reference_state:
+      storage_million_m3: 0.0025
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 萬榮鄉; 村里: 萬榮村; 地標: (林田山第112林班); 誘因: 地震; 事件: 高雄美濃地震; 持續時間(日): 133; 坐落區位: 林班地; 原始項次: 57"
+
+  - id: "dongpurui-xiaobantian-2017"
+    name_zh: "東埔蚋溪小半天"
+    status: "archived"
+    formed_at: "2017-06-03"
+    location:
+      centroid: [120.751515, 23.708283]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 鹿谷鄉; 村里: 竹豐村; 誘因: 降雨; 持續時間(日): 1; 坐落區位: 山坡地; 原始項次: 58"
+
+  - id: "yilan-shitou-2018"
+    name_zh: "宜蘭石頭溪"
+    status: "archived"
+    location:
+      centroid: [121.447781, 24.568094]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 宜蘭縣; 鄉鎮: 大同鄉; 村里: 茂安村; 地標: (太平山第30林班); 誘因: 降雨; 坐落區位: 林班地; 原始項次: 59"
+
+  - id: "wuniulan-2019"
+    name_zh: "烏牛欄溪"
+    status: "archived"
+    formed_at: "2019-08-21"
+    location:
+      centroid: [120.768195, 24.219744]
+    reference_state:
+      storage_million_m3: 0
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺中市; 鄉鎮: 豐原區; 村里: 東陽里; 地標: (八仙山第132林班); 誘因: 颱風; 事件: 米塔颱風; 坐落區位: 林班地; 原始項次: 60"
+
+  - id: "taidong-danan-2021"
+    name_zh: "臺東大南溪"
+    status: "archived"
+    formed_at: "2021-02-05"
+    location:
+      centroid: [120.953231, 22.725245]
+    reference_state:
+      storage_million_m3: 1.7
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 卑南鄉; 村里: 東興村; 地標: (台東第27林班); 持續時間(日): 251; 坐落區位: 林班地; 原始項次: 61"
+
+  - id: "taoyuan-daman-2021"
+    name_zh: "桃園大曼溪"
+    status: "archived"
+    formed_at: "2021-06-19"
+    location:
+      centroid: [121.404401, 24.675631]
+    reference_state:
+      storage_million_m3: 0.015
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 桃園市; 鄉鎮: 復興區; 村里: 華陵里; 地標: (大溪第35林班); 誘因: 降雨; 事件: 110年0621豪雨; 坐落區位: 林班地; 原始項次: 62"
+
+  - id: "hualian-fengping-shangyou-2021"
+    name_zh: "花蓮豐坪溪上游"
+    status: "archived"
+    formed_at: "2021-11-06"
+    location:
+      centroid: [121.256438, 23.496499]
+    reference_state:
+      storage_million_m3: 0.075
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 卓溪鄉; 村里: 立山村; 地標: (玉里第27林班); 持續時間(日): 633; 坐落區位: 林班地; 原始項次: 63"
+
+  - id: "taidong-xinwulu-2022"
+    name_zh: "臺東新武呂溪"
+    status: "archived"
+    formed_at: "2022-11-20"
+    location:
+      centroid: [121.054263, 23.162090]
+    reference_state:
+      storage_million_m3: 0.086
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 臺東縣; 鄉鎮: 海端鄉; 村里: 霧鹿村; 地標: 關山第13林班與山坡地交界; 誘因: 降雨; 持續時間(日): 243; 坐落區位: 山坡地; 原始項次: 64"
+
+  - id: "hualian-wanli-2024"
+    name_zh: "花蓮萬里溪"
+    status: "archived"
+    formed_at: "2024-03-13"
+    location:
+      centroid: [121.292997, 23.778141]
+    reference_state:
+      storage_million_m3: 0.55
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 萬榮鄉; 村里: 萬榮村; 地標: (林田山第78林班); 持續時間(日): 134; 坐落區位: 林班地; 原始項次: 65"
+
+  - id: "hualian-mugua-2024"
+    name_zh: "花蓮木瓜溪"
+    status: "archived"
+    formed_at: "2024-04-14"
+    location:
+      centroid: [121.378513, 24.008958]
+    reference_state:
+      storage_million_m3: 0.43
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 秀林鄉; 村里: 銅門村; 地標: (木瓜山57林班); 誘因: 地震; 事件: 0403強震; 持續時間(日): 107; 坐落區位: 林班地; 原始項次: 66"
+
+  - id: "pingdong-shuaimang-2024"
+    name_zh: "屏東率芒溪"
+    status: "archived"
+    formed_at: "2024-10-05"
+    location:
+      centroid: [120.672355, 22.372359]
+    reference_state:
+      storage_million_m3: 0.037
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 屏東縣; 鄉鎮: 春日鄉; 村里: 士文村; 誘因: 颱風; 事件: 山陀兒颱風; 持續時間(日): 9; 坐落區位: 山坡地; 原始項次: 67"
+
+  - id: "xinzhu-taigang-2024"
+    name_zh: "新竹泰崗溪"
+    status: "monitoring"
+    formed_at: "2024-11-02"
+    location:
+      centroid: [121.344632, 24.564249]
+    reference_state:
+      storage_million_m3: 0.27
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 新竹縣; 鄉鎮: 尖石鄉; 村里: 玉峰村; 地標: (大溪第114林班); 誘因: 颱風; 事件: 康芮颱風; 持續時間(日): 持續至今; 坐落區位: 林班地; 原始項次: 68"
+
+  - id: "hualian-lele-2025"
+    name_zh: "花蓮樂樂溪"
+    status: "archived"
+    formed_at: "2025-01-25"
+    location:
+      centroid: [121.159202, 23.380861]
+    reference_state:
+      storage_million_m3: 0.086
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 花蓮縣; 鄉鎮: 卓溪鄉; 村里: 卓溪村; 地標: (秀姑巒第8林班); 誘因: 地震; 事件: 0121地震; 持續時間(日): 143; 潰決時間: 2025/06/17; 坐落區位: 林班地; 原始項次: 69"
+
+  - id: "yunlin-qingshui-caoling-2025"
+    name_zh: "雲林清水溪(草嶺)"
+    status: "archived"
+    formed_at: "2025-07-08"
+    location:
+      centroid: [120.668592, 23.578738]
+    reference_state:
+      storage_million_m3: 14
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 雲林縣; 鄉鎮: 古坑鄉; 村里: 草嶺村; 誘因: 颱風; 事件: 丹娜絲颱風; 持續時間(日): 2; 潰決時間: 2025/07/10; 潰決原因: 溢流沖刷; 坐落區位: 河川; 原始項次: 70"
+
+  # - id: "hualian-mataian-2025"
+  #   name_zh: "花蓮馬太鞍溪"
+  #   status: "monitoring"
+  #   formed_at: "2025-07-21"
+  #   location:
+  #     centroid: [121.297521, 23.700611]
+  #   reference_state:
+  #     storage_million_m3: 91
+  #     note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+  #   note: "縣市: 花蓮縣; 鄉鎮: 萬榮鄉; 村里: 明利村; 地標: (林田山第118林班); 誘因: 颱風; 事件: 薇帕颱風; 持續時間(日): 64; 潰決時間: 2025/09/23; 潰決原因: 溢流沖刷; 坐落區位: 林班地; 原始項次: 71"
+
+  # - id: "hualian-liwu-yanzikou-2025"
+  #   name_zh: "花蓮立霧溪(燕子口)"
+  #   status: "archived"
+  #   formed_at: "2025-10-17"
+  #   location:
+  #     centroid: [121.559130, 24.173152]
+  #   reference_state:
+  #     storage_million_m3: 1.9
+  #     note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+  #   note: "縣市: 花蓮縣; 鄉鎮: 秀林鄉; 村里: 富世村; 地標: (燕子口、立霧溪第20林班); 持續時間(日): 9; 潰決時間: 2025/10/26; 潰決原因: 機具開挖; 坐落區位: 林班地; 原始項次: 72"
+
+  - id: "nantou-hehuan-2026"
+    name_zh: "南投合歡溪"
+    status: "archived"
+    formed_at: "2026-04-07"
+    location:
+      centroid: [121.249710, 24.162090]
+    reference_state:
+      storage_million_m3: 0.04
+      note: "歷史清冊蓄水量欄位換算自萬立方公尺，非即時監測值。"
+    note: "縣市: 南投縣; 鄉鎮: 仁愛鄉; 村里: 力行村; 地標: 合歡溪步道大約3.5公里處(大甲溪事業區第82林班); 事件: 4/7連日降雨; 持續時間(日): 56; 潰決原因: 溢流道開挖、壩體降挖及湖區土方回填; 坐落區位: 林班地; 原始項次: 73"

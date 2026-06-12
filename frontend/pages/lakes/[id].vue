@@ -33,6 +33,7 @@
             </select>
             <label class="muted">模型</label>
             <select v-model="floodModel" class="sel">
+              <option value="seed_fill">壩體逐格填水實驗版</option>
               <option value="directional">水量分配實驗版</option>
               <option value="impact_area">可能影響範圍</option>
               <option value="mvp">MVP 原模型</option>
@@ -86,7 +87,7 @@ const center = computed<[number, number] | undefined>(() =>
 );
 
 const scenario = ref("full");
-const floodModel = ref("directional");
+const floodModel = ref("seed_fill");
 const inundation = ref<any>(null);
 const inundationFeature = computed(() => inundation.value?.inundation_polygon);
 const population = ref<any>(null);

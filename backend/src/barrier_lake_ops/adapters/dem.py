@@ -26,6 +26,11 @@ DEFAULT_FLOW_PATH_RISE_TOLERANCE_M = 10.0
 DEFAULT_FLOW_PATH_SEARCH_RADIUS_CELLS = 3
 DEFAULT_FLOOD_H_MAX_M = 15.0
 DEFAULT_FLOOD_H_SOLVER_STEPS = 16
+DEFAULT_SEED_FILL_VALLEY_THRESHOLD_M = 3.0
+DEFAULT_SEED_FILL_SEGMENT_M = 500.0
+DEFAULT_SEED_FILL_RETENTION_RATIO = 0.35
+DEFAULT_SEED_FILL_FLOW_PATH_DEPTH_M = 0.2
+DEFAULT_SEED_FILL_BANK_THRESHOLD_M = 8.0
 
 SOURCE = DataSource(
     source="SRTM 30m 數值高程(NASA,公有領域)via opentopodata",
@@ -289,6 +294,169 @@ def _solve_flood_h_for_volume(
 
 
 
+def _seed_fill_from_seed_8(
+    traversable: np.ndarray,
+    relative: np.ndarray,
+    seed: tuple[int, int],
+    cell_area: float,
+    target_volume_m3: float,
+    along_m: np.ndarray,
+    dist_m: np.ndarray,
+    flow_path: np.ndarray | None = None,
+    *,
+    max_h: float = DEFAULT_FLOOD_H_MAX_M,
+    valley_threshold_m: float = DEFAULT_SEED_FILL_VALLEY_THRESHOLD_M,
+    segment_m: float = DEFAULT_SEED_FILL_SEGMENT_M,
+    retention_ratio: float = DEFAULT_SEED_FILL_RETENTION_RATIO,
+    flow_path_depth_m: float = DEFAULT_SEED_FILL_FLOW_PATH_DEPTH_M,
+) -> tuple[float, np.ndarray, np.ndarray, float]:
+    """沿 seed 連通低谷 corridor 往下游逐段填水。
+
+    1. 先從 DEM/HAND-like relative 找出低谷格,並用 flow_path 補齊中游斷點。
+    2. 只保留從壩體 seed 可經 traversable 連到的低谷 corridor。
+    3. 依 along_m 切下游段,連續逐段只保留剩餘水量的一部分。
+       flow_path 以淺層 footprint 補足流路連續性;max_h 只作為每段容量上限。
+    """
+    empty = np.zeros_like(traversable, dtype=bool)
+    empty_depth = np.zeros_like(relative, dtype=float)
+    if target_volume_m3 <= 0 or cell_area <= 0:
+        return 0.0, empty, empty_depth, 0.0
+    if not traversable[seed] or not np.isfinite(relative[seed]):
+        return 0.0, empty, empty_depth, 0.0
+
+    finite = traversable & np.isfinite(relative) & np.isfinite(along_m)
+    eligible = finite & (relative <= max_h)
+    if not eligible.any():
+        return 0.0, empty, empty_depth, 0.0
+
+    path = np.zeros_like(traversable, dtype=bool) if flow_path is None else flow_path
+    valley = finite & (relative <= valley_threshold_m)
+    corridor_seed = valley | (path & finite)
+    corridor = _reachable_floodable_from_seed_8(traversable, corridor_seed, seed)
+    if not corridor.any():
+        corridor = _reachable_floodable_from_seed_8(traversable, eligible, seed)
+    if not corridor.any():
+        return 0.0, empty, empty_depth, 0.0
+
+    segment_width = max(float(segment_m), 1.0)
+    segments = np.floor(np.maximum(along_m, 0.0) / segment_width).astype(int)
+    touched_segments = np.unique(segments[corridor])
+    first_segment = int(np.min(touched_segments))
+    last_segment = int(np.max(touched_segments))
+    segment_ids = list(range(first_segment, last_segment + 1))
+
+    selected = np.zeros_like(traversable, dtype=bool)
+    depth = np.zeros_like(relative, dtype=float)
+    remaining = float(target_volume_m3)
+    used = 0.0
+    best_h = 0.0
+
+    def solve_incremental(
+        pool: np.ndarray, volume_m3: float, cap_h: float
+    ) -> tuple[float, np.ndarray, np.ndarray, float]:
+        rel = relative[pool]
+        if rel.size == 0 or volume_m3 <= 0:
+            return 0.0, np.zeros_like(pool), np.zeros_like(relative), 0.0
+
+        cap_h = float(min(cap_h, max_h))
+        current = depth[pool]
+        capacity_depth = np.clip(cap_h - rel, 0, None)
+        remaining_depth = np.clip(capacity_depth - current, 0, None)
+        capacity_volume = float(remaining_depth.sum() * cell_area)
+        if capacity_volume <= 0:
+            return 0.0, np.zeros_like(pool), np.zeros_like(relative), 0.0
+
+        if volume_m3 >= capacity_volume:
+            add_depth = np.zeros_like(relative)
+            add_depth[pool] = remaining_depth
+            return cap_h, add_depth > 0, add_depth, capacity_volume
+
+        low = float(np.nanmin(rel))
+        high = cap_h
+        for _ in range(DEFAULT_FLOOD_H_SOLVER_STEPS):
+            mid = (low + high) / 2.0
+            target_depth = np.clip(mid - rel, 0, None)
+            add = np.clip(target_depth - current, 0, None)
+            vol = float(add.sum() * cell_area)
+            if vol < volume_m3:
+                low = mid
+            else:
+                high = mid
+
+        local_h = high
+        target_depth = np.clip(local_h - rel, 0, None)
+        add = np.clip(target_depth - current, 0, None)
+        add_depth = np.zeros_like(relative)
+        add_depth[pool] = add
+        local_volume = float(add_depth.sum() * cell_area)
+        if local_volume > volume_m3 and local_volume > 0:
+            add_depth *= volume_m3 / local_volume
+            local_volume = float(add_depth.sum() * cell_area)
+        return local_h, add_depth > 0, add_depth, local_volume
+
+    for segment_id in segment_ids:
+        if remaining <= 0:
+            break
+
+        # 每一段都從 seed 重新做「累積到此下游距離」的可達區。
+        # 這讓水面從壩體附近往外長,而不是 corridor 觸及某段後就把該段全域攤開。
+        cumulative = segments <= segment_id
+        reachable_pool = _reachable_floodable_from_seed_8(
+            traversable & cumulative,
+            eligible & cumulative,
+            seed,
+        )
+        segment_pool = reachable_pool & (segments == segment_id)
+        if segment_pool.any():
+            remaining_depth = np.where(
+                segment_pool,
+                np.clip(max_h - relative, 0, None) - depth,
+                0.0,
+            )
+            remaining_depth = np.clip(remaining_depth, 0, None)
+            segment_capacity = float(remaining_depth.sum() * cell_area)
+            if segment_capacity > 0:
+                ratio = min(max(float(retention_ratio), 0.0), 1.0)
+                desired_retention = remaining if segment_id == segment_ids[-1] else remaining * ratio
+                retained_volume = min(segment_capacity, max(desired_retention, 0.0))
+                retained_remaining = retained_volume
+
+                band_levels = (
+                    min(float(valley_threshold_m), float(max_h)),
+                    min(float(DEFAULT_SEED_FILL_BANK_THRESHOLD_M), float(max_h)),
+                    float(max_h),
+                )
+                for band_h in band_levels:
+                    if retained_remaining <= 0 or remaining <= 0:
+                        break
+                    band_pool = segment_pool & (relative <= band_h)
+                    local_h, local_mask, local_depth, local_volume = solve_incremental(
+                        band_pool, retained_remaining, band_h
+                    )
+                    if local_volume <= 0:
+                        continue
+                    selected |= local_mask
+                    depth += local_depth
+                    used += local_volume
+                    remaining -= local_volume
+                    retained_remaining -= local_volume
+                    best_h = max(best_h, local_h)
+
+        path_segment = path & (segments == segment_id) & traversable & ~selected
+        if path_segment.any() and remaining > 0:
+            path_depth_value = max(0.0, min(float(flow_path_depth_m), float(max_h)))
+            path_depth = np.where(path_segment, path_depth_value, 0.0)
+            path_volume = float(path_depth.sum() * cell_area)
+            if path_volume > remaining and path_volume > 0:
+                path_depth *= remaining / path_volume
+                path_volume = float(path_depth.sum() * cell_area)
+            selected |= path_depth > 0
+            depth += path_depth
+            remaining -= path_volume
+            used += path_volume
+            best_h = max(best_h, path_depth_value)
+
+    return best_h, selected, depth, used
 
 
 def estimate_flood(
@@ -454,6 +622,8 @@ def _estimate_downstream_candidate(
             "dlat": dlat,
             "midlat": midlat,
             "centroid": (clon, clat),
+            "seed": None,
+            "traversable": np.zeros_like(elev, dtype=bool),
         }
 
     target_lonlat = ((minlon + maxlon) / 2, (minlat + maxlat) / 2)
@@ -502,6 +672,8 @@ def _estimate_downstream_candidate(
         "dlat": dlat,
         "midlat": midlat,
         "centroid": (clon, clat),
+        "seed": seed,
+        "traversable": traversable,
     }
 
 
@@ -608,3 +780,43 @@ def estimate_flood_directional(
     depth = np.where(mask, ctx["depth"], 0.0)
     return _flood_result_from_mask(ctx, mask, depth)
 
+
+def estimate_flood_seed_fill(
+    lake_id: str,
+    volume_m3: float,
+    centroid_lonlat: tuple[float, float],
+    *,
+    reach_km: float = 18.0,
+) -> dict:
+    """實驗版:沿壩體 seed 連通低谷 corridor 往下游逐段填水。"""
+    ctx = _estimate_downstream_candidate(
+        lake_id,
+        volume_m3,
+        centroid_lonlat,
+        reach_km=reach_km,
+    )
+    seed = ctx.get("seed")
+    if seed is None:
+        return _flood_result_from_mask(ctx, ctx["mask"], ctx["depth"])
+
+    flood_h, mask, depth, estimated_volume_m3 = _seed_fill_from_seed_8(
+        ctx["traversable"],
+        ctx["relative"],
+        seed,
+        ctx["cell_area"],
+        volume_m3,
+        ctx["along_m"],
+        ctx["dist_m"],
+        ctx["flow_path"],
+    )
+    if mask.any():
+        base = float(np.nanmin(ctx["local_min"][mask]))
+    else:
+        base = float(ctx["level"])
+    seed_ctx = {
+        **ctx,
+        "flood_h": flood_h,
+        "estimated_volume_m3": estimated_volume_m3,
+        "level": base + flood_h,
+    }
+    return _flood_result_from_mask(seed_ctx, mask, depth)
