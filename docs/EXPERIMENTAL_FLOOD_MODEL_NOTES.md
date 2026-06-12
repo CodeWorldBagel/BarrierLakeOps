@@ -41,12 +41,15 @@ In short:
 - `DEFAULT_FLOW_PATH_RISE_TOLERANCE_M`
   Used by `impact_area` flow-path tracing. Larger values allow the flow footprint to cross higher DEM bumps; smaller values make the path easier to stop at local high points.
 
+- `DEFAULT_FLOW_PATH_SEARCH_RADIUS_CELLS`
+  Used by `impact_area` flow-path tracing. Each step first checks the 8 neighboring cells. If none qualify, it searches outward ring by ring up to this radius. Larger values bridge more DEM gaps but can broaden the flow footprint.
+
 - `DEFAULT_FLOOD_H_MAX_M`
   Caps the DEM capacity solver. If the target volume cannot fit in reachable cells below this height, the solver returns the capped result and the estimated contained volume will be lower than the scenario volume.
 
 ## Test Method
 
-`estimate_flood_impact_area(...)` uses the same downstream candidate logic and default reach as `estimate_flood_directional(...)`, but skips the capacity-limited downstream segment pruning and unions in a simple downstream `flow_path` footprint. It is exposed as `model_variant: "impact_area"` and appears in the frontend as `可能影響範圍`, so it can be compared against the current capacity-distributed inundation area.
+`estimate_flood_impact_area(...)` uses the same downstream candidate logic and default reach as `estimate_flood_directional(...)`, but skips the capacity-limited downstream segment pruning and unions in a simple downstream `flow_path` footprint. It is still affected by `volume_m3` through the solved `flood_h`, but should be interpreted as a possible affected corridor rather than a finite stored-water area. It is exposed as `model_variant: "impact_area"` and appears in the frontend as `可能影響範圍`, so it can be compared against the current capacity-distributed inundation area.
 
 ## Recommended next experiments
 

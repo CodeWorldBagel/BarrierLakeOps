@@ -22,9 +22,10 @@ DEFAULT_DAM_ANCHOR_RADIUS = 1
 DEFAULT_DIRECTIONAL_RELATIVE_RADIUS = 2
 DEFAULT_DOWNSTREAM_BACKTRACK_CELLS = 6
 DEFAULT_DOWNSTREAM_SEGMENT_M = 500.0
-DEFAULT_FLOW_PATH_RISE_TOLERANCE_M =60.0
+DEFAULT_FLOW_PATH_RISE_TOLERANCE_M = 10.0
+DEFAULT_FLOW_PATH_SEARCH_RADIUS_CELLS = 3
 DEFAULT_FLOOD_H_MAX_M = 15.0
-DEFAULT_FLOOD_H_SOLVER_STEPS = 24
+DEFAULT_FLOOD_H_SOLVER_STEPS = 16
 
 SOURCE = DataSource(
     source="SRTM 30m 數值高程(NASA,公有領域)via opentopodata",
@@ -183,35 +184,48 @@ def _downstream_flow_path_mask(
     seed: tuple[int, int],
     *,
     rise_tolerance_m: float = DEFAULT_FLOW_PATH_RISE_TOLERANCE_M,
+    search_radius_cells: int = DEFAULT_FLOW_PATH_SEARCH_RADIUS_CELLS,
 ) -> np.ndarray:
-    """從 seed 往下游追蹤較低或近似等高的流經格。"""
+    """從 seed 往下游追蹤流經格;8 鄰格無路時逐圈外找。"""
     h, w = traversable.shape
     out = np.zeros_like(traversable)
     if not traversable[seed] or not np.isfinite(elev[seed]):
         return out
 
+    def candidates_from(r: int, c: int) -> list[tuple[int, int]]:
+        current_elev = float(elev[r, c])
+        current_along = float(along_m[r, c]) if np.isfinite(along_m[r, c]) else -np.inf
+        max_radius = max(1, int(search_radius_cells))
+        for radius in range(1, max_radius + 1):
+            found: list[tuple[int, int]] = []
+            for dr in range(-radius, radius + 1):
+                for dc in range(-radius, radius + 1):
+                    if dr == 0 and dc == 0:
+                        continue
+                    if max(abs(dr), abs(dc)) != radius:
+                        continue
+                    nr, nc = r + dr, c + dc
+                    if not (0 <= nr < h and 0 <= nc < w):
+                        continue
+                    if out[nr, nc] or not traversable[nr, nc] or not np.isfinite(elev[nr, nc]):
+                        continue
+                    next_along = float(along_m[nr, nc]) if np.isfinite(along_m[nr, nc]) else -np.inf
+                    if next_along + 1e-6 < current_along:
+                        continue
+                    if float(elev[nr, nc]) > current_elev + rise_tolerance_m:
+                        continue
+                    found.append((nr, nc))
+            if found:
+                return found
+        return []
+
     stack = [seed]
     out[seed] = True
     while stack:
         r, c = stack.pop()
-        current_elev = float(elev[r, c])
-        current_along = float(along_m[r, c]) if np.isfinite(along_m[r, c]) else -np.inf
-        for dr in (-1, 0, 1):
-            for dc in (-1, 0, 1):
-                if dr == 0 and dc == 0:
-                    continue
-                nr, nc = r + dr, c + dc
-                if not (0 <= nr < h and 0 <= nc < w):
-                    continue
-                if out[nr, nc] or not traversable[nr, nc] or not np.isfinite(elev[nr, nc]):
-                    continue
-                next_along = float(along_m[nr, nc]) if np.isfinite(along_m[nr, nc]) else -np.inf
-                if next_along + 1e-6 < current_along:
-                    continue
-                if float(elev[nr, nc]) > current_elev + rise_tolerance_m:
-                    continue
-                out[nr, nc] = True
-                stack.append((nr, nc))
+        for nr, nc in candidates_from(r, c):
+            out[nr, nc] = True
+            stack.append((nr, nc))
     return out
 
 
@@ -307,9 +321,9 @@ def estimate_flood(
     cols = np.arange(w)[None, :]
     cell_lon = minlon + cols * dlon
     cell_lat = maxlat - rows * dlat
-    east_m = (cell_lon - clon) * 111_320 * math.cos(math.radians(midlat))
-    north_m = (cell_lat - clat) * 110_540
-    dist_m = np.hypot(east_m, north_m)
+    x_m = (cell_lon - clon) * 111_320 * math.cos(math.radians(midlat))
+    y_m = (cell_lat - clat) * 110_540
+    dist_m = np.hypot(x_m, y_m)
     in_reach = dist_m <= reach_km * 1000
 
     # 下游谷底基準:reach 內最低點(連通種子)
@@ -383,11 +397,13 @@ def _estimate_downstream_candidate(
     reach_km: float,
 ) -> dict:
     """共用的下游候選淹水格計算;是否容量裁切由呼叫端決定。"""
+    # 讀取此湖的 DEM 格網與其經緯度 bbox。NaN 視為無資料,後續以 inf 排除。
     arr, meta = _load(lake_id)
     h, w = arr.shape
     minlon, minlat, maxlon, maxlat = meta["bbox"]
     elev = np.where(np.isnan(arr), np.inf, arr)
 
+    # 將 DEM 的經緯度解析度近似換算成公尺,供距離與水量體積計算使用。
     midlat = (minlat + maxlat) / 2
     dlon = (maxlon - minlon) / (w - 1)
     dlat = (maxlat - minlat) / (h - 1)
@@ -395,16 +411,18 @@ def _estimate_downstream_candidate(
     dy_m = dlat * 110_540
     cell_area = abs(dx_m * dy_m)
 
+    # 建立每個 DEM cell 相對於壩體/湖心參考點的 x/y 平面座標與距離。
     clon, clat = centroid_lonlat
     rows = np.arange(h)[:, None]
     cols = np.arange(w)[None, :]
     cell_lon = minlon + cols * dlon
     cell_lat = maxlat - rows * dlat
-    east_m = (cell_lon - clon) * 111_320 * math.cos(math.radians(midlat))
-    north_m = (cell_lat - clat) * 110_540
-    dist_m = np.hypot(east_m, north_m)
+    x_m = (cell_lon - clon) * 111_320 * math.cos(math.radians(midlat))
+    y_m = (cell_lat - clat) * 110_540
+    dist_m = np.hypot(x_m, y_m)
     in_reach = dist_m <= reach_km * 1000
 
+    # 將壩體/湖心經緯度轉成 DEM row/col,並找附近最近的有效高程格作為 seed。
     dam_row = int(round((maxlat - clat) / dlat))
     dam_col = int(round((clon - minlon) / dlon))
     dam_row = max(0, min(h - 1, dam_row))
@@ -419,10 +437,12 @@ def _estimate_downstream_candidate(
             "mask": np.zeros_like(elev, dtype=bool),
             "flow_path": np.zeros_like(elev, dtype=bool),
             "depth": np.zeros_like(elev, dtype=float),
+            "elev": elev,
             "relative": relative,
             "local_min": local_min,
             "along_m": dist_m,
             "dist_m": dist_m,
+            "reach_m": reach_km * 1000,
             "cell_area": cell_area,
             "flood_h": 0.0,
             "target_volume_m3": volume_m3,
@@ -437,13 +457,13 @@ def _estimate_downstream_candidate(
         }
 
     target_lonlat = ((minlon + maxlon) / 2, (minlat + maxlat) / 2)
-    target_east_m = (target_lonlat[0] - clon) * 111_320 * math.cos(math.radians(midlat))
-    target_north_m = (target_lonlat[1] - clat) * 110_540
-    target_dist_m = math.hypot(target_east_m, target_north_m)
+    target_x_m = (target_lonlat[0] - clon) * 111_320 * math.cos(math.radians(midlat))
+    target_y_m = (target_lonlat[1] - clat) * 110_540
+    target_dist_m = math.hypot(target_x_m, target_y_m)
     if target_dist_m > 0:
-        flow_east = target_east_m / target_dist_m
-        flow_north = target_north_m / target_dist_m
-        along_m = east_m * flow_east + north_m * flow_north
+        flow_x = target_x_m / target_dist_m
+        flow_y = target_y_m / target_dist_m
+        along_m = x_m * flow_x + y_m * flow_y
         downstream = along_m >= -max(abs(dx_m), abs(dy_m)) * DEFAULT_DOWNSTREAM_BACKTRACK_CELLS
     else:
         along_m = dist_m
@@ -465,10 +485,12 @@ def _estimate_downstream_candidate(
         "mask": mask,
         "flow_path": flow_path,
         "depth": depth,
+        "elev": elev,
         "relative": relative,
         "local_min": local_min,
         "along_m": along_m,
         "dist_m": dist_m,
+        "reach_m": reach_km * 1000,
         "cell_area": cell_area,
         "flood_h": flood_h,
         "target_volume_m3": volume_m3,
@@ -546,7 +568,7 @@ def estimate_flood_impact_area(
     volume_m3: float,
     centroid_lonlat: tuple[float, float],
     *,
-    reach_km: float = 15.0,
+    reach_km: float = 18.0,
 ) -> dict:
     """測試版:回傳未經容量裁切的可能下游影響範圍,包含水流經過格。"""
     ctx = _estimate_downstream_candidate(
@@ -565,7 +587,7 @@ def estimate_flood_directional(
     volume_m3: float,
     centroid_lonlat: tuple[float, float],
     *,
-    reach_km: float = 15.0,
+    reach_km: float = 18.0,
 ) -> dict:
     """實驗版:容量限制後的下游淹水範圍。"""
     ctx = _estimate_downstream_candidate(
