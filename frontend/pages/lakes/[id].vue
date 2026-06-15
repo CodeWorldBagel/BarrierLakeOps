@@ -1,57 +1,52 @@
 <template>
   <div class="war">
-    <div class="topbar panel panel-pad">
-      <div class="row left">
-        <NuxtLink to="/" class="btn sm">← 返回</NuxtLink>
-        <b class="title">{{ status?.name || id }}</b>
-        <AlertBadge v-if="status" :level="status.alert_level" />
-      </div>
-      <div class="muted">{{ status?.freshness ? "freshness: " + status.freshness : "" }}</div>
-    </div>
-
     <div class="cols">
-      <!-- 左:狀態 / 雨量 / 人口 -->
+      <!-- 左:標題 / 狀態 / 雨量 / 人口 -->
       <div class="col scroll">
         <StatusCards :status="status" />
         <WeatherPanel :weather="weather" />
         <PopulationTable :pop="population" />
       </div>
 
-      <!-- 中:地圖 + 淹水 + 摘要 -->
-      <div class="col scroll">
+      <!-- 中:只放地圖 -->
+      <div class="col mapcol">
         <div class="panel mapwrap">
           <ClientOnly>
             <LakeMap :lakes="mapLakes" :inundation="inundationFeature" :center="center" :zoom="12" />
           </ClientOnly>
         </div>
-        <div class="panel panel-pad controls">
-          <div class="row">
-            <label class="muted">潰壩情境</label>
-            <select v-model="scenario" class="sel">
-              <option value="full">全潰壩 (full)</option>
-              <option value="partial">部分潰壩 (partial)</option>
-            </select>
-            <button class="btn primary" :disabled="floodLoading" @click="estimate">
-              {{ floodLoading ? "推估中…" : "推估淹水範圍" }}
-            </button>
-          </div>
-          <div v-if="inundation" class="row stat">
-            <span class="tag">最大深度 {{ inundation.max_depth_m_estimate }} m</span>
-            <span class="tag">抵達 {{ inundation.leading_edge_arrival_minutes }} 分</span>
-          </div>
-          <div v-if="inundation" class="disclaimer">⚠ {{ inundation.disclaimer }}</div>
-        </div>
-        <div class="row genbar">
-          <button class="btn" :disabled="brfLoading" @click="genBriefing">生成態勢摘要</button>
-          <span class="muted note">彙整狀態 / 雨量 / 淹水 / 人口 → AI 摘要(寫入稽核)</span>
-        </div>
-        <BriefingCard :b="briefing" :loading="brfLoading" />
-        <BriefingHistory :items="history" @replay="replay" />
       </div>
 
-      <!-- 右:Chat -->
-      <div class="col chatcol">
-        <ChatPanel :lake-id="id" />
+      <!-- 右:Chat(上) + 淹水/摘要(下) -->
+      <div class="col rightcol">
+        <div class="chatwrap">
+          <ChatPanel :lake-id="id" />
+        </div>
+        <div class="rightlower scroll">
+          <div class="panel panel-pad controls">
+            <div class="row">
+              <label class="muted">潰壩情境</label>
+              <select v-model="scenario" class="sel">
+                <option value="full">全潰壩 (full)</option>
+                <option value="partial">部分潰壩 (partial)</option>
+              </select>
+              <button class="btn primary" :disabled="floodLoading" @click="estimate">
+                {{ floodLoading ? "推估中…" : "推估淹水範圍" }}
+              </button>
+            </div>
+            <div v-if="inundation" class="row stat">
+              <span class="tag">最大深度 {{ inundation.max_depth_m_estimate }} m</span>
+              <span class="tag">抵達 {{ inundation.leading_edge_arrival_minutes }} 分</span>
+            </div>
+            <div v-if="inundation" class="disclaimer">⚠ {{ inundation.disclaimer }}</div>
+          </div>
+          <div class="row genbar">
+            <button class="btn" :disabled="brfLoading" @click="genBriefing">生成態勢摘要</button>
+            <span class="muted note">彙整狀態 / 雨量 / 淹水 / 人口 → AI 摘要(寫入稽核)</span>
+          </div>
+          <BriefingCard :b="briefing" :loading="brfLoading" />
+          <BriefingHistory :items="history" @replay="replay" />
+        </div>
       </div>
     </div>
   </div>
@@ -137,14 +132,17 @@ onMounted(loadHistory);
 
 <style scoped>
 .war { height: calc(100vh - 53px); display: flex; flex-direction: column; padding: 12px 16px; gap: 12px; }
-.topbar { display: flex; align-items: center; justify-content: space-between; }
-.topbar .left { align-items: center; }
-.topbar .title { font-size: 16px; }
-.cols { flex: 1; display: grid; grid-template-columns: 340px 1fr 360px; gap: 12px; min-height: 0; }
+.cols { flex: 1; display: grid; grid-template-columns: 340px 1fr 400px; gap: 12px; min-height: 0; }
 .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .col.scroll { overflow-y: auto; padding-right: 4px; }
-.chatcol { min-height: 0; }
-.mapwrap { height: 320px; overflow: hidden; }
+.mapcol { min-height: 0; }
+.mapwrap { flex: 1; min-height: 0; overflow: hidden; }
+
+/* 右欄:Chat 在上、淹水/摘要在下 */
+.rightcol { min-height: 0; }
+.chatwrap { flex: 1 1 46%; min-height: 240px; display: flex; }
+.chatwrap > * { width: 100%; }
+.rightlower { flex: 1 1 54%; overflow-y: auto; padding-right: 4px; }
 .controls .sel { background: var(--bg-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; }
 .controls .row { align-items: center; }
 .controls .stat { margin-top: 8px; }
@@ -154,6 +152,9 @@ onMounted(loadHistory);
 @media (max-width: 1200px) {
   .cols { grid-template-columns: 1fr; overflow-y: auto; }
   .war { height: auto; }
-  .chatcol { height: 520px; }
+  .mapcol { height: 360px; }
+  .rightcol { height: auto; }
+  .chatwrap { flex: none; height: 520px; }
+  .rightlower { flex: none; overflow: visible; }
 }
 </style>

@@ -7,8 +7,8 @@
           v-for="f in filters"
           :key="f.v"
           class="btn sm"
-          :class="{ primary: modelFilter === f.v }"
-          @click="$emit('filter', f.v)"
+          :class="{ primary: activeFilters.includes(f.v) }"
+          @click="$emit('toggle', f.v)"
         >
           {{ f.t }}
         </button>
@@ -34,18 +34,17 @@
           <span v-else-if="lk.formed_at">形成於 {{ lk.formed_at }}</span>
         </div>
       </NuxtLink>
-      <div v-if="!lakes.length" class="panel-pad muted">載入中…</div>
+      <div v-if="!lakes.length" class="panel-pad muted">請選擇標籤</div>
     </div>
     <div class="panel-pad foot muted">資料來源:data.moa 國有林堰塞湖 + Lake Catalog</div>
   </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{ lakes: any[]; selected?: string; modelFilter: string }>();
-defineEmits<{ filter: [v: string] }>();
+defineProps<{ lakes: any[]; selected?: string; activeFilters: string[] }>();
+defineEmits<{ toggle: [v: string] }>();
 const filters = [
-  { v: "all", t: "全部" },
-  { v: "active", t: "監測中" },
+  { v: "alert", t: "警戒中" },
   { v: "monitoring", t: "觀察中" },
   { v: "archived", t: "已解除" },
 ];

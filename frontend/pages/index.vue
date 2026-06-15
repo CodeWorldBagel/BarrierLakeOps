@@ -3,9 +3,9 @@
     <div class="grid">
       <LakeListPanel
         :lakes="filtered"
-        :model-filter="filter"
+        :active-filters="activeFilters"
         :selected="selectedId"
-        @filter="setFilter"
+        @toggle="toggleFilter"
       />
       <div class="mapwrap panel">
         <ClientOnly>
@@ -24,12 +24,20 @@
 
 <script setup lang="ts">
 const api = useApi();
-const filter = ref("all");
+// 多選篩選;一進來預設選取「警戒中」「觀察中」
+const activeFilters = ref<string[]>(["alert", "monitoring"]);
 const { data: lakesData } = await useAsyncData("lakes", () => api.listLakes("all"));
 const lakes = computed<any[]>(() => (lakesData.value as any)?.lakes || []);
 
+const matchers: Record<string, (l: any) => boolean> = {
+  alert: (l) => l.alert_level && l.alert_level !== "unknown",
+  monitoring: (l) => l.status === "monitoring",
+  archived: (l) => l.status === "archived",
+};
 const filtered = computed(() =>
-  filter.value === "all" ? lakes.value : lakes.value.filter((l) => l.status === filter.value),
+  activeFilters.value.length
+    ? lakes.value.filter((l) => activeFilters.value.some((f) => matchers[f]?.(l)))
+    : [],
 );
 const selectedId = computed(() => lakes.value[0]?.id);
 const center = computed<[number, number] | undefined>(() => {
@@ -41,7 +49,11 @@ const counts = computed(() => ({
   orange: lakes.value.filter((l) => l.alert_level === "orange").length,
 }));
 
-const setFilter = (v: string) => (filter.value = v);
+const toggleFilter = (v: string) => {
+  const i = activeFilters.value.indexOf(v);
+  if (i === -1) activeFilters.value = [...activeFilters.value, v];
+  else activeFilters.value = activeFilters.value.filter((f) => f !== v);
+};
 const goLake = (id: string) => navigateTo(`/lakes/${id}`);
 </script>
 

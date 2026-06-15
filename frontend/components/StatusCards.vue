@@ -1,8 +1,12 @@
 <template>
   <div class="panel panel-pad">
+    <div class="lakehead">
+      <NuxtLink to="/" class="back" aria-label="返回列表">←</NuxtLink>
+      <b class="title">{{ status?.name || "—" }}</b>
+      <AlertBadge v-if="status" :level="status.alert_level" />
+    </div>
     <div class="head">
       <h3>堰塞湖狀態</h3>
-      <AlertBadge v-if="status" :level="status.alert_level" />
     </div>
     <div v-if="status" class="cards">
       <div class="card">
@@ -22,11 +26,6 @@
         <div class="kpi">{{ fmt(status.storage_million_m3) }}<small> 百萬m³</small></div>
       </div>
     </div>
-    <div v-if="status?.note" class="note muted">⚠ {{ status.note }}</div>
-    <div v-if="status" class="row meta">
-      <span class="tag">freshness: {{ status.freshness }}</span>
-      <span v-if="status.last_updated" class="tag">更新 {{ status.last_updated }}</span>
-    </div>
   </div>
 </template>
 
@@ -40,6 +39,15 @@ const hrClass = computed(() => {
 </script>
 
 <style scoped>
+.lakehead { display: flex; align-items: center; gap: 10px; min-width: 0; margin-bottom: 12px; }
+.lakehead .back {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex: 0 0 auto;
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: 16px; line-height: 1; text-decoration: none;
+}
+.lakehead .back:hover { background: var(--panel-2); }
+.lakehead .title { flex: 1; min-width: 0; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
