@@ -149,7 +149,8 @@ async def _execute(name: str, args: dict) -> dict:
         return (await get_upstream_weather(args["lake_id"])).model_dump()
     if name == "estimate_inundation":
         inu = await estimate_inundation(args["lake_id"], args.get("breach_scenario", "full"))
-        return {k: v for k, v in inu.model_dump().items() if k != "inundation_polygon"}
+        # 保留完整 polygon 給前端畫地圖;餵 LLM 前才在 run_chat 裡剝除(裁切只在呈現/LLM 邊界)。
+        return inu.model_dump()
     if name == "get_affected_population":
         inu = await estimate_inundation(args["lake_id"], args.get("breach_scenario", "full"))
         pop = await get_affected_population(inu.inundation_polygon)
@@ -224,38 +225,19 @@ async def run_chat(
                     args = {}
                 yield sse({"type": "tool_call", "name": name, "args": args})
                 result = await _execute(name, args)
-                yield sse({"type": "tool_result", "name": name, "result": _summary(name, result)})
+                # 前端拿完整結果(含 polygon)畫卡片與地圖;LLM 與稽核只留精簡(剝除大型 GeoJSON)。
+                lean = {k: v for k, v in result.items() if k != "inundation_polygon"}
+                yield sse({"type": "tool_result", "name": name, "result": result})
                 if sid:
                     async with SessionLocal() as db:
                         await add_chat_message(
                             db, session_id=sid, role="tool", tool_name=name,
-                            tool_args=args, tool_result=result,
+                            tool_args=args, tool_result=lean,
                         )
                 messages.append(
                     {"role": "tool", "tool_call_id": tc.id,
-                     "content": json.dumps(result, ensure_ascii=False, default=str)[:8000]}
+                     "content": json.dumps(lean, ensure_ascii=False, default=str)[:8000]}
                 )
         yield sse({"type": "final", "content": "（已達工具調用上限,請縮小問題範圍再試。）"})
     except Exception as exc:  # noqa: BLE001
         yield sse({"type": "error", "message": f"Chat 發生錯誤:{exc}"})
-
-
-def _summary(name: str, result: dict) -> dict:
-    """給前端顯示用的精簡工具結果。"""
-    if name == "list_lakes":
-        return {"total": result.get("total")}
-    if name == "get_lake_status":
-        return {"name": result.get("name"), "alert_level": result.get("alert_level"),
-                "headroom_m": result.get("headroom_m")}
-    if name == "get_upstream_weather":
-        return {"alert_level": result.get("alert_level")}
-    if name == "estimate_inundation":
-        return {"max_depth_m_estimate": result.get("max_depth_m_estimate"),
-                "leading_edge_arrival_minutes": result.get("leading_edge_arrival_minutes")}
-    if name == "get_affected_population":
-        return {"villages": len(result.get("affected_villages", [])),
-                "total_households": result.get("total_households"),
-                "total_population": result.get("total_population")}
-    if name == "compose_briefing":
-        return {"status_color": result.get("status_color"), "headline": result.get("headline")}
-    return {}

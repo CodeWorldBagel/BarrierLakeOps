@@ -15,17 +15,23 @@ from fastapi.responses import RedirectResponse
 from . import __version__
 from .config import get_settings
 from .db import engine as db
+from .server import mcp
 
 settings = get_settings()
 logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger("barrier_lake_ops")
 
+# 遠端 MCP:把同一份 6 工具以 streamable-HTTP 掛在 /mcp,讓 Claude / Cursor 等可一鍵接入。
+# http_app 自帶 session-manager lifespan,需與 FastAPI 的建表 lifespan 合併執行。
+mcp_app = mcp.http_app(path="/")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 啟動時建表(MVP:create_all;DB 不可用時降級,不阻擋非 DB 端點)
-    await db.init_models()
-    yield
+    async with mcp_app.lifespan(app):
+        # 啟動時建表(MVP:create_all;DB 不可用時降級,不阻擋非 DB 端點)
+        await db.init_models()
+        yield
 
 
 app = FastAPI(
@@ -87,3 +93,6 @@ app.include_router(lakes.router)
 app.include_router(geo.router)
 app.include_router(briefing.router)
 app.include_router(chat.router)
+
+# 遠端 MCP endpoint(streamable-HTTP):https://<api-host>/mcp
+app.mount("/mcp", mcp_app)

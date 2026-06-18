@@ -19,7 +19,18 @@ from .tools.get_lake_status import get_lake_status as _status
 from .tools.get_upstream_weather import get_upstream_weather as _weather
 from .tools.list_lakes import list_lakes as _list
 
-mcp = FastMCP("BarrierLakeOps")
+# 安全守則同步至 AGENT.md;透過 MCP `instructions` 傳遞給掛載的 client(Claude / Cursor 等),
+# 確保護欄不依賴本專案內建 reference client 的 system prompt。
+INSTRUCTIONS = (
+    "你是台灣『堰塞湖跨部會態勢』作戰助手,服務災害應變中心人員。"
+    "只能透過本元件提供的工具取得資料,不得用工具以外的知識編造數字,也不得進行通用網路搜尋補資料。"
+    "必須區分觀測值與模型估算:淹水(estimate_inundation)為 MVP 簡化模型需註明;水位若為情境基準快照需說明非即時;"
+    "資料若標示 stale/unavailable 需如實指出。"
+    "你只提供研判與建議,不得宣稱已發送撤離簡訊、致電消防或觸發警報——對外通知一律由人類執行,"
+    "撤離決策保留給人類指揮官。請用繁體中文,先呈現關鍵數據再給建議。完整守則見 AGENT.md。"
+)
+
+mcp = FastMCP("BarrierLakeOps", instructions=INSTRUCTIONS)
 
 
 @mcp.tool
@@ -44,7 +55,9 @@ async def get_upstream_weather(lake_id: str, hours_back: int = 24, hours_forward
 async def estimate_inundation(
     lake_id: str, breach_scenario: str = "full", breach_volume_million_m3: float | None = None
 ) -> dict:
-    """推估潰壩淹水範圍(真實 DEM + MVP 簡化模型),輸出 GeoJSON 與深度/抵達時間。"""
+    """推估潰壩淹水範圍(真實 DEM + MVP 簡化模型),輸出 GeoJSON 與深度/抵達時間。
+
+    ⚠ 結果為 MVP 簡化模型估算,非工程級水文模型,引用時務必註明。breach_scenario: full|partial。"""
     return (await _inundation(lake_id, breach_scenario, breach_volume_million_m3)).model_dump()
 
 
@@ -58,7 +71,9 @@ async def get_affected_population(polygon: dict) -> dict:
 async def compose_briefing(
     context: dict, audience: str = "command_center", lake_id: str | None = None
 ) -> dict:
-    """彙整 Tool 0–4 回傳,生成結構化態勢摘要。audience: command_center|public|media|multi_lake_overview。"""
+    """彙整 Tool 0–4 回傳,生成結構化態勢摘要(寫入稽核軌跡)。audience: command_center|public|media|multi_lake_overview。
+
+    ⚠ 僅提供研判輔助;不下達或建議自動撤離,撤離決策保留給人類指揮官。"""
     aud = audience if audience in BriefingAudience._value2member_map_ else "command_center"
     return (await _compose(context, aud, lake_id)).model_dump()
 
