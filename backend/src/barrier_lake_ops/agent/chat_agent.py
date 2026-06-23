@@ -13,7 +13,6 @@ from collections.abc import AsyncGenerator
 from ..db.engine import SessionLocal
 from ..db.repository import add_chat_message, create_chat_session
 from .openai_client import get_client, get_model
-from ..tools.compose_briefing import compose_briefing
 from ..tools.estimate_inundation import estimate_inundation
 from ..tools.get_affected_population import get_affected_population
 from ..tools.get_lake_status import get_lake_status
@@ -22,8 +21,9 @@ from ..tools.list_lakes import list_lakes
 
 SYSTEM = (
     "你是台灣『堰塞湖跨部會態勢』作戰助手,服務災害應變中心人員。"
-    "你只能透過提供的工具取得資料(列出堰塞湖、查狀態、查上游雨量、估淹水、估影響人口、生成摘要),"
+    "你只能透過提供的工具取得資料(列出堰塞湖、查狀態、查上游雨量、估淹水、估影響人口),"
     "不得使用工具以外的知識編造數字,也不得進行通用網路搜尋。"
+    "需要態勢摘要時,請逐一呼叫上述資料工具分別取得資料後,再由你自行彙整撰寫(無另外的摘要工具)。"
     "淹水為 MVP 簡化模型,需註明;水位若為情境基準快照需說明非即時。"
     "你只提供研判與建議,不得宣稱已發送撤離簡訊、致電消防或觸發警報——對外通知由人類執行。"
     "撤離決策保留給人類指揮官。請用繁體中文,以對話口語精簡作答:"
@@ -100,38 +100,7 @@ TOOL_SPECS = [
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "compose_briefing",
-            "description": "彙整某湖的狀態/雨量/淹水/人口,生成結構化態勢摘要。audience 預設 command_center。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "lake_id": {"type": "string"},
-                    "audience": {
-                        "type": "string",
-                        "enum": ["command_center", "public", "media", "multi_lake_overview"],
-                    },
-                },
-                "required": ["lake_id"],
-            },
-        },
-    },
 ]
-
-
-async def _assemble_context(lake_id: str, scenario: str = "full") -> dict:
-    st = await get_lake_status(lake_id)
-    w = await get_upstream_weather(lake_id)
-    inu = await estimate_inundation(lake_id, scenario)
-    pop = await get_affected_population(inu.inundation_polygon)
-    return {
-        "status": st.model_dump(),
-        "weather": w.model_dump(),
-        "inundation": {k: v for k, v in inu.model_dump().items() if k != "inundation_polygon"},
-        "population": pop.model_dump(),
-    }
 
 
 async def _execute(name: str, args: dict) -> dict:
@@ -158,10 +127,6 @@ async def _execute(name: str, args: dict) -> dict:
         inu = await estimate_inundation(args["lake_id"], args.get("breach_scenario", "full"))
         pop = await get_affected_population(inu.inundation_polygon)
         return pop.model_dump()
-    if name == "compose_briefing":
-        ctx = await _assemble_context(args["lake_id"])
-        b = await compose_briefing(ctx, args.get("audience", "command_center"), args["lake_id"])
-        return b.model_dump()
     return {"error": f"unknown tool {name}"}
 
 
