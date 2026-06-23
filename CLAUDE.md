@@ -25,8 +25,8 @@ cd frontend && npm install && npm run dev   # http://localhost:3000
 - Project ID: `6a1beb20f9a5b4afba15d962`(BarrierLakeOps, Seoul)
 - Environment ID: `6a1beb20b764eebf4f53b460`
 - Services(direct deploy;**redeploy 用 `deploy --service-id`**,不能 in-place redeploy):
-  - backend  `6a1d0023dde8027c6783f508` → https://barrierlakeops-api.code-world-bagel.com(自訂網域,有效 HTTPS)
-  - frontend `6a1d005c2cc61de70f4db855` → https://barrierlakeops.code-world-bagel.com(自訂網域,有效 HTTPS)
+  - backend  `6a1d0023dde8027c6783f508` → https://barrierlakeops-api.codeworldbagel.com(自訂網域,有效 HTTPS)
+  - frontend `6a1d005c2cc61de70f4db855` → https://barrierlakeops.codeworldbagel.com(自訂網域,有效 HTTPS)
   - postgresql `6a1d00e72cc61de70f4db865`(template B20CX0)
   - (備:`*.zeabur.app` 生成網域憑證簽發較慢;自訂網域立即有效)
 - 環境變數關聯(改 domain 時兩者需同步更新並 redeploy,**程式碼不需改**):

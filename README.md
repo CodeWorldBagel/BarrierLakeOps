@@ -20,8 +20,8 @@
 
 | | 連結 |
 |---|---|
-| Web 儀表板(Reference Client) | **https://barrierlakeops.code-world-bagel.com** |
-| REST API 文件(Swagger) | **https://barrierlakeops-api.code-world-bagel.com/docs** |
+| Web 儀表板(Reference Client) | **https://barrierlakeops.codeworldbagel.com** |
+| REST API 文件(Swagger) | **https://barrierlakeops-api.codeworldbagel.com/docs** |
 
 > 部署於 Zeabur(frontend / backend / PostgreSQL 三服務,原生建置)。6 個 Tool 串接真實政府開放資料。
 
