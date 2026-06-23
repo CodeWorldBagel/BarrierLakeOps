@@ -36,7 +36,7 @@
 
     <!-- 快速鍵:點擊 = 送出預寫自然語言,交由 agent 路由工具 -->
     <div class="panel-pad quickbar">
-      <button class="chip" :disabled="busy" @click="ask('彙整目前狀態、上游雨量、淹水與影響人口,生成一份指揮中心態勢摘要。')">
+      <button class="chip" :disabled="busy" @click="ask('彙整目前堰塞湖狀態(水位、蓄水量、距溢流 headroom、警戒等級)與上游集水區雨量,生成一份指揮中心態勢摘要。不要進行潰壩淹水或影響人口推估。')">
         📋 態勢摘要
       </button>
       <button class="chip danger" :disabled="busy" @click="ask('根據目前態勢綜合研判,今晚是否需要預警性撤離?請先列關鍵數據(淹水範圍、抵達時間、影響人口)再給建議。')">
