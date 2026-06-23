@@ -24,29 +24,29 @@
             <span class="muted ts">{{ fmtTime(it.created_at) }}</span>
           </button>
         </div>
-        <div v-else-if="t.role === 'assistant'" class="msg bot">
-          <!-- 工具調用過程:精簡軌跡(不顯示結果卡片,資料由下方 AI 文字彙整) -->
-          <div v-if="t.steps.length" class="trace">
-            <div v-for="(s, j) in t.steps" :key="j" class="stepwrap">
-              <button
-                type="button"
-                class="step"
-                :class="[s.status, { clickable: !!s.result }]"
-                :disabled="!s.result"
-                @click="s.open = !s.open"
-              >
-                <span class="ic">{{ s.status === "done" ? "✓" : "⚙" }}</span>
-                <span class="tname">{{ s.status === "done" ? toolLabel(s.name) : "呼叫 " + toolLabel(s.name) + "…" }}</span>
-                <span v-if="argHint(s)" class="ahint">{{ argHint(s) }}</span>
-                <span v-if="s.result" class="chev">{{ s.open ? "▾ 收合資料" : "▸ 查看資料" }}</span>
-              </button>
-              <pre v-if="s.open && s.result" class="stepdata">{{ formatResult(s) }}</pre>
-            </div>
+        <template v-else-if="t.role === 'assistant'">
+          <!-- 每個工具步驟 = 獨立對話框,取得當下即顯示;點「查看資料」展開原始資料 -->
+          <div v-for="(s, j) in t.steps" :key="i + '-s-' + j" class="msg bot stepmsg">
+            <button
+              type="button"
+              class="step"
+              :class="[s.status, { clickable: !!s.result }]"
+              :disabled="!s.result"
+              @click="s.open = !s.open"
+            >
+              <span class="ic">{{ s.status === "done" ? "✓" : "⚙" }}</span>
+              <span class="tname">{{ s.status === "done" ? toolLabel(s.name) : "呼叫 " + toolLabel(s.name) + "…" }}</span>
+              <span v-if="argHint(s)" class="ahint">{{ argHint(s) }}</span>
+              <span v-if="s.result" class="chev">{{ s.open ? "▾ 收合資料" : "▸ 查看資料" }}</span>
+            </button>
+            <pre v-if="s.open && s.result" class="stepdata">{{ formatResult(s) }}</pre>
           </div>
-
-          <div v-if="t.content" class="content md" v-html="renderMd(t.content)"></div>
-          <div v-else-if="t.busy" class="muted">研判中…</div>
-        </div>
+          <!-- 結論 = 獨立對話框 -->
+          <div v-if="t.content" class="msg bot">
+            <div class="content md" v-html="renderMd(t.content)"></div>
+          </div>
+          <div v-else-if="t.busy" class="msg bot muted">研判中…</div>
+        </template>
       </template>
     </div>
 
@@ -88,7 +88,7 @@ const api = useApi();
 
 // html:false → 模型輸出中的原始 HTML 會被轉義(防 XSS);表格為 markdown-it 預設啟用。
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
-const renderMd = (s: string) => md.render(s || "");
+const renderMd = (s: string) => md.render((s || "").replace(/\n{3,}/g, "\n\n").trim());
 
 const text = ref("");
 const busy = ref(false);
@@ -224,8 +224,9 @@ async function send() {
 .msg.user { align-self: flex-end; background: var(--accent); color: #fffdf8; }
 .msg.bot { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); width: 96%; }
 /* 工具調用軌跡(可收合 step by step) */
-.trace { margin-bottom: 6px; display: flex; flex-direction: column; gap: 3px; }
-.stepwrap { display: flex; flex-direction: column; }
+.trace { display: flex; flex-direction: column; gap: 3px; }
+/* 每個工具步驟為獨立小對話框,較緊湊 */
+.stepmsg { padding: 6px 11px; }
 .step {
   font-size: 11.5px; display: flex; gap: 6px; align-items: baseline; width: 100%;
   background: none; border: none; padding: 1px 0; color: inherit; text-align: left; font-family: inherit;
@@ -254,6 +255,9 @@ async function send() {
 .histrow .ts { font-size: 11px; }
 .content { margin-top: 2px; }
 /* AI 回覆的 Markdown 呈現(v-html 內容需用 :deep) */
+/* 關鍵:覆蓋 .msg 的 white-space: pre-wrap,否則 markdown-it 產生的標籤間換行會變成可見空行 */
+.md { white-space: normal; }
+.md :deep(li > p) { margin: 0; }
 .md :deep(p) { margin: 4px 0; }
 .md :deep(p:first-child) { margin-top: 0; }
 .md :deep(p:last-child) { margin-bottom: 0; }
