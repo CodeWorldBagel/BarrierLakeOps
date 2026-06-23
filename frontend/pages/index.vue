@@ -9,7 +9,7 @@
       />
       <div class="mapwrap panel">
         <ClientOnly>
-          <LakeMap :lakes="lakes" :selected-id="selectedId" :center="center" @select="goLake" />
+          <LakeMap :lakes="filtered" :selected-id="selectedId" :center="center" @select="goLake" />
           <template #fallback><div class="panel-pad muted">地圖載入中…</div></template>
         </ClientOnly>
       </div>

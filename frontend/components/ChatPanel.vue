@@ -68,7 +68,7 @@
             </div>
           </div>
 
-          <div v-if="t.content" class="content">{{ t.content }}</div>
+          <div v-if="t.content" class="content md" v-html="renderMd(t.content)"></div>
           <div v-else-if="t.busy" class="muted">研判中…</div>
         </div>
       </template>
@@ -103,10 +103,16 @@
 </template>
 
 <script setup lang="ts">
+import MarkdownIt from "markdown-it";
+
 const props = defineProps<{ lakeId?: string }>();
 const emit = defineEmits<{ inundation: [polygon: any] }>();
 const { stream } = useChatStream();
 const api = useApi();
+
+// html:false → 模型輸出中的原始 HTML 會被轉義(防 XSS);表格為 markdown-it 預設啟用。
+const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
+const renderMd = (s: string) => md.render(s || "");
 
 const text = ref("");
 const busy = ref(false);
@@ -163,6 +169,9 @@ function ask(prompt: string) {
   text.value = prompt;
   send();
 }
+
+// 供左欄 InundationPanel 等同層元件呼叫(模擬使用者送出訊息)
+defineExpose({ ask });
 
 async function send() {
   const msg = text.value.trim();
@@ -227,6 +236,24 @@ async function send() {
 .histrow .hl { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .histrow .ts { font-size: 11px; }
 .content { margin-top: 2px; }
+/* AI 回覆的 Markdown 呈現(v-html 內容需用 :deep) */
+.md :deep(p) { margin: 4px 0; }
+.md :deep(p:first-child) { margin-top: 0; }
+.md :deep(p:last-child) { margin-bottom: 0; }
+.md :deep(ul), .md :deep(ol) { margin: 4px 0; padding-left: 18px; }
+.md :deep(li) { margin: 2px 0; }
+.md :deep(strong) { font-weight: 700; }
+.md :deep(h1), .md :deep(h2), .md :deep(h3), .md :deep(h4) { font-size: 13px; margin: 7px 0 3px; }
+.md :deep(code) {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 4px; font-size: 11.5px;
+}
+.md :deep(table) {
+  border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 12px;
+  display: block; overflow-x: auto;
+}
+.md :deep(th), .md :deep(td) { border: 1px solid var(--border); padding: 3px 7px; text-align: left; }
+.md :deep(th) { background: var(--bg-2); font-weight: 600; }
 
 .quickbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-top: 1px solid var(--border); }
 .chip {
