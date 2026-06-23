@@ -10,9 +10,14 @@
         <div v-if="t.role === 'user'" class="msg user">{{ t.content }}</div>
         <!-- 歷史簡報 · 稽核軌跡(直接讀稽核資料,點選以卡片重播) -->
         <div v-else-if="t.role === 'history'" class="msg bot">
-          <div class="step"><span class="ic">🕘</span><span class="tname">歷史簡報 · 稽核軌跡</span></div>
-          <div v-if="t.busy" class="muted">載入中…</div>
-          <div v-else-if="!t.items.length" class="muted">尚無歷史簡報。</div>
+          <div class="trace">
+            <div class="step">
+              <span class="ic">{{ t.busy ? "⚙" : "✓" }}</span>
+              <span class="tname">{{ t.busy ? "讀取歷史簡報…" : "讀取歷史簡報" }}</span>
+              <span v-if="!t.busy" class="ahint">{{ t.items.length }} 筆</span>
+            </div>
+          </div>
+          <div v-if="!t.busy && !t.items.length" class="muted">尚無歷史簡報。</div>
           <button v-for="it in t.items" :key="it.id" class="histrow" @click="replay(it.id)">
             <AlertBadge :level="it.status_color || 'unknown'" />
             <span class="hl">{{ it.headline }}</span>
@@ -20,51 +25,22 @@
           </button>
         </div>
         <div v-else-if="t.role === 'assistant'" class="msg bot">
-          <!-- 工具軌跡 + 結果卡片(對話式資訊呈現) -->
-          <div v-for="(s, j) in t.steps" :key="j" class="toolblock">
-            <div class="step">
-              <span class="ic">{{ s.status === "done" ? "✓" : "⚙" }}</span>
-              <span class="tname">{{ toolLabel(s.name) }}</span>
-            </div>
-
-            <div v-if="s.status === 'done' && s.result" class="card-slot">
-              <!-- 態勢摘要 -->
-              <BriefingCard v-if="s.name === 'compose_briefing'" :b="s.result" />
-              <!-- 影響人口 -->
-              <PopulationTable v-else-if="s.name === 'get_affected_population'" :pop="s.result" />
-              <!-- 上游雨量 -->
-              <WeatherPanel v-else-if="s.name === 'get_upstream_weather'" :weather="s.result" />
-              <!-- 淹水推估 -->
-              <div v-else-if="s.name === 'estimate_inundation'" class="mini">
-                <div class="row">
-                  <span class="tag">最大深度 {{ fmt(s.result.max_depth_m_estimate) }} m</span>
-                  <span class="tag">抵達 {{ fmt(s.result.leading_edge_arrival_minutes) }} 分</span>
-                  <span class="tag map">已套疊地圖 →</span>
-                </div>
-                <div v-if="s.result.disclaimer" class="disclaimer">⚠ {{ s.result.disclaimer }}</div>
-              </div>
-              <!-- 堰塞湖狀態 -->
-              <div v-else-if="s.name === 'get_lake_status'" class="mini">
-                <div class="row">
-                  <b>{{ s.result.name }}</b>
-                  <AlertBadge :level="s.result.alert_level" />
-                  <span class="tag">headroom {{ fmt(s.result.headroom_m) }} m</span>
-                  <span v-if="s.result.water_level_m != null" class="tag">水位 {{ fmt(s.result.water_level_m) }} m</span>
-                </div>
-              </div>
-              <!-- 列出堰塞湖 -->
-              <div v-else-if="s.name === 'list_lakes'" class="mini">
-                <NuxtLink
-                  v-for="lk in (s.result.lakes || []).slice(0, 6)"
-                  :key="lk.id"
-                  :to="`/lakes/${lk.id}`"
-                  class="lakerow"
-                >
-                  <AlertBadge :level="lk.alert_level || 'unknown'" />
-                  <span class="nm">{{ lk.name }}</span>
-                  <span class="muted">headroom {{ fmt(lk.headroom_m) }} m</span>
-                </NuxtLink>
-              </div>
+          <!-- 工具調用過程:精簡軌跡(不顯示結果卡片,資料由下方 AI 文字彙整) -->
+          <div v-if="t.steps.length" class="trace">
+            <div v-for="(s, j) in t.steps" :key="j" class="stepwrap">
+              <button
+                type="button"
+                class="step"
+                :class="[s.status, { clickable: !!s.result }]"
+                :disabled="!s.result"
+                @click="s.open = !s.open"
+              >
+                <span class="ic">{{ s.status === "done" ? "✓" : "⚙" }}</span>
+                <span class="tname">{{ s.status === "done" ? toolLabel(s.name) : "呼叫 " + toolLabel(s.name) + "…" }}</span>
+                <span v-if="argHint(s)" class="ahint">{{ argHint(s) }}</span>
+                <span v-if="s.result" class="chev">{{ s.open ? "▾ 收合資料" : "▸ 查看資料" }}</span>
+              </button>
+              <pre v-if="s.open && s.result" class="stepdata">{{ formatResult(s) }}</pre>
             </div>
           </div>
 
@@ -129,8 +105,39 @@ const TOOL_LABELS: Record<string, string> = {
   compose_briefing: "態勢摘要",
 };
 const toolLabel = (n: string) => TOOL_LABELS[n] || n;
-const fmt = (v: any) => (v == null ? "—" : Number(v).toLocaleString());
 const fmtTime = (s: string) => (s ? new Date(s).toLocaleString("zh-TW") : "");
+
+// 軌跡上顯示的關鍵參數提示(只挑有助理解的)
+function argHint(s: any): string {
+  if (!s?.args) return "";
+  if (s.name === "estimate_inundation") {
+    const sc = s.args.breach_scenario;
+    return sc === "partial" ? "部分潰壩" : sc === "full" ? "全潰壩" : "";
+  }
+  return "";
+}
+
+// 點開步驟時呈現的「原始取得資料」:剝除大型 GeoJSON,以可讀 JSON 顯示
+const STRIP = new Set(["inundation_polygon", "geometry", "polygon", "coordinates"]);
+function formatResult(s: any): string {
+  const r = s?.result;
+  if (r == null) return "";
+  if (typeof r !== "object") return String(r);
+  const clean = (o: any): any => {
+    if (Array.isArray(o)) return o.map(clean);
+    if (o && typeof o === "object") {
+      const out: Record<string, any> = {};
+      for (const k of Object.keys(o)) out[k] = STRIP.has(k) ? "<geojson 已省略>" : clean(o[k]);
+      return out;
+    }
+    return o;
+  };
+  try {
+    return JSON.stringify(clean(r), null, 2);
+  } catch {
+    return String(r);
+  }
+}
 
 async function showHistory() {
   if (busy.value) return;
@@ -150,9 +157,11 @@ async function showHistory() {
 async function replay(bid: string) {
   try {
     const r: any = await api.getBriefing(bid);
-    turns.value.push(
-      reactive({ role: "assistant", steps: [{ name: "compose_briefing", status: "done", result: r }], content: "", busy: false }),
-    );
+    // 不再用卡片;以精簡 Markdown 文字重播
+    const facts = (r.key_facts || []).map((f: string) => "- " + f).join("\n");
+    const body = r.natural_language || facts || "(無內容)";
+    const content = `**${r.headline || "態勢摘要"}**\n\n${body}`;
+    turns.value.push(reactive({ role: "assistant", steps: [], content, busy: false }));
     scrollDown();
   } catch {
     /* ignore */
@@ -185,7 +194,7 @@ async function send() {
   try {
     await stream({ message: msg, lake_id: props.lakeId, session_id: sessionId.value }, (ev) => {
       if (ev.type === "session") sessionId.value = ev.session_id || sessionId.value;
-      else if (ev.type === "tool_call") bot.steps.push({ name: ev.name, args: ev.args, status: "calling" });
+      else if (ev.type === "tool_call") bot.steps.push({ name: ev.name, args: ev.args, status: "calling", open: false });
       else if (ev.type === "tool_result") {
         const s = [...bot.steps].reverse().find((x) => x.name === ev.name && x.status === "calling");
         if (s) { s.status = "done"; s.result = ev.result; }
@@ -214,19 +223,27 @@ async function send() {
 .msg { max-width: 96%; padding: 8px 11px; border-radius: 10px; font-size: 13px; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; background: var(--accent); color: #fffdf8; }
 .msg.bot { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); width: 96%; }
-.toolblock { margin-bottom: 8px; }
-.step { font-size: 11.5px; display: flex; gap: 6px; align-items: baseline; margin-bottom: 4px; }
+/* 工具調用軌跡(可收合 step by step) */
+.trace { margin-bottom: 6px; display: flex; flex-direction: column; gap: 3px; }
+.stepwrap { display: flex; flex-direction: column; }
+.step {
+  font-size: 11.5px; display: flex; gap: 6px; align-items: baseline; width: 100%;
+  background: none; border: none; padding: 1px 0; color: inherit; text-align: left; font-family: inherit;
+}
+.step.clickable { cursor: pointer; }
+.step:disabled { cursor: default; }
 .step .ic { color: var(--accent); }
+.step.calling .ic { opacity: .7; }
+.step.calling .tname { color: var(--muted); font-weight: 500; }
 .step .tname { color: var(--text); font-weight: 600; }
-.card-slot :deep(.panel) { margin: 0; }
-.mini { font-size: 12.5px; }
-.mini .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.mini .tag { background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; font-size: 11.5px; }
-.mini .tag.map { color: var(--accent); }
-.disclaimer { margin-top: 5px; font-size: 11px; color: var(--muted, #999); }
-.lakerow { display: flex; align-items: center; gap: 7px; padding: 4px 0; text-decoration: none; color: var(--text); }
-.lakerow:hover .nm { text-decoration: underline; }
-.lakerow .nm { flex: 1; }
+.step .ahint { color: var(--muted); font-size: 11px; }
+.step .chev { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.step.clickable:hover .chev { color: var(--accent); }
+.stepdata {
+  margin: 3px 0 4px; background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 8px 10px; font-size: 11px; line-height: 1.5;
+  max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+}
 .histrow {
   display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; margin-top: 6px;
   background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
