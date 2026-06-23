@@ -76,27 +76,14 @@
 
     <!-- 快速鍵:點擊 = 送出預寫自然語言,交由 agent 路由工具 -->
     <div class="panel-pad quickbar">
-      <button class="chip" :disabled="busy" @click="ask(`請推估本堰塞湖在「${scenarioLabel}」情境下的淹水範圍、最大深度與抵達時間。`)">
-        🌊 推估淹水
-      </button>
-      <select v-model="scenario" class="sel" :disabled="busy" aria-label="潰壩情境">
-        <option value="full">全潰壩</option>
-        <option value="partial">部分潰壩</option>
-      </select>
-      <button class="chip" :disabled="busy" @click="ask('推估潰壩後淹水範圍內受影響的村里、戶數與人口(含老幼弱勢)。')">
-        👥 影響人口
-      </button>
-      <button class="chip" :disabled="busy" @click="ask('查詢本堰塞湖上游集水區目前的雨量觀測與警戒。')">
-        🌧 上游雨量
-      </button>
       <button class="chip" :disabled="busy" @click="ask('彙整目前狀態、上游雨量、淹水與影響人口,生成一份指揮中心態勢摘要。')">
         📋 態勢摘要
       </button>
-      <button class="chip danger" :disabled="busy" @click="ask('根據目前態勢綜合研判,今晚是否需要預警性撤離?請先列關鍵數據再給建議。')">
-        🚨 今晚要不要撤
-      </button>
       <button class="chip" :disabled="busy" @click="showHistory">
         🕘 歷史簡報
+      </button>
+      <button class="chip danger" :disabled="busy" @click="ask('根據目前態勢綜合研判,今晚是否需要預警性撤離?請先列關鍵數據(淹水範圍、抵達時間、影響人口)再給建議。')">
+        🚨 撤離分析
       </button>
     </div>
 
@@ -123,8 +110,6 @@ const api = useApi();
 
 const text = ref("");
 const busy = ref(false);
-const scenario = ref<"full" | "partial">("full");
-const scenarioLabel = computed(() => (scenario.value === "full" ? "全潰壩" : "部分潰壩"));
 const sessionId = ref<string | undefined>(undefined);
 const turns = ref<any[]>([]);
 const scroller = ref<HTMLElement | null>(null);
@@ -251,10 +236,6 @@ async function send() {
 .chip:hover:not(:disabled) { border-color: var(--accent); }
 .chip:disabled { opacity: .5; cursor: default; }
 .chip.danger { border-color: #c0563b; color: #e08a6f; }
-.quickbar .sel {
-  background: var(--bg-2); color: var(--text); border: 1px solid var(--border);
-  border-radius: 8px; padding: 5px 7px; font-size: 12.5px;
-}
 .composer { border-top: 1px solid var(--border); }
 .inp { display: flex; gap: 8px; }
 .field { flex: 1; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 11px; font-size: 13px; }

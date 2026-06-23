@@ -1,10 +1,11 @@
 <template>
   <div class="war">
     <div class="cols">
-      <!-- 左:狀態 / 上游雨量 -->
+      <!-- 左:狀態 / 上游雨量 / 淹水推估 -->
       <div class="col scroll">
         <StatusCards :status="status" />
         <WeatherPanel :weather="weather" />
+        <InundationPanel :lake-id="id" @inundation="onInundation" />
       </div>
 
       <!-- 中:地圖(淹水圖層由 Chat 推估結果套疊) -->
