@@ -8,22 +8,6 @@
       </div>
       <template v-for="(t, i) in turns" :key="i">
         <div v-if="t.role === 'user'" class="msg user">{{ t.content }}</div>
-        <!-- 歷史簡報 · 稽核軌跡(直接讀稽核資料,點選以卡片重播) -->
-        <div v-else-if="t.role === 'history'" class="msg bot">
-          <div class="trace">
-            <div class="step">
-              <span class="ic">{{ t.busy ? "⚙" : "✓" }}</span>
-              <span class="tname">{{ t.busy ? "讀取歷史簡報…" : "讀取歷史簡報" }}</span>
-              <span v-if="!t.busy" class="ahint">{{ t.items.length }} 筆</span>
-            </div>
-          </div>
-          <div v-if="!t.busy && !t.items.length" class="muted">尚無歷史簡報。</div>
-          <button v-for="it in t.items" :key="it.id" class="histrow" @click="replay(it.id)">
-            <AlertBadge :level="it.status_color || 'unknown'" />
-            <span class="hl">{{ it.headline }}</span>
-            <span class="muted ts">{{ fmtTime(it.created_at) }}</span>
-          </button>
-        </div>
         <template v-else-if="t.role === 'assistant'">
           <!-- 每個工具步驟 = 獨立對話框,取得當下即顯示;點「查看資料」展開原始資料 -->
           <div v-for="(s, j) in t.steps" :key="i + '-s-' + j" class="msg bot stepmsg">
@@ -54,9 +38,6 @@
     <div class="panel-pad quickbar">
       <button class="chip" :disabled="busy" @click="ask('彙整目前狀態、上游雨量、淹水與影響人口,生成一份指揮中心態勢摘要。')">
         📋 態勢摘要
-      </button>
-      <button class="chip" :disabled="busy" @click="showHistory">
-        🕘 歷史簡報
       </button>
       <button class="chip danger" :disabled="busy" @click="ask('根據目前態勢綜合研判,今晚是否需要預警性撤離?請先列關鍵數據(淹水範圍、抵達時間、影響人口)再給建議。')">
         🚨 撤離分析
@@ -105,7 +86,6 @@ const TOOL_LABELS: Record<string, string> = {
   compose_briefing: "態勢摘要",
 };
 const toolLabel = (n: string) => TOOL_LABELS[n] || n;
-const fmtTime = (s: string) => (s ? new Date(s).toLocaleString("zh-TW") : "");
 
 // 軌跡上顯示的關鍵參數提示(只挑有助理解的)
 function argHint(s: any): string {
@@ -136,35 +116,6 @@ function formatResult(s: any): string {
     return JSON.stringify(clean(r), null, 2);
   } catch {
     return String(r);
-  }
-}
-
-async function showHistory() {
-  if (busy.value) return;
-  const turn = reactive({ role: "history", items: [] as any[], busy: true });
-  turns.value.push(turn);
-  await scrollDown();
-  try {
-    const r: any = await api.listBriefings(props.lakeId);
-    turn.items = r.briefings || [];
-  } catch {
-    turn.items = [];
-  }
-  turn.busy = false;
-  scrollDown();
-}
-
-async function replay(bid: string) {
-  try {
-    const r: any = await api.getBriefing(bid);
-    // 不再用卡片;以精簡 Markdown 文字重播
-    const facts = (r.key_facts || []).map((f: string) => "- " + f).join("\n");
-    const body = r.natural_language || facts || "(無內容)";
-    const content = `**${r.headline || "態勢摘要"}**\n\n${body}`;
-    turns.value.push(reactive({ role: "assistant", steps: [], content, busy: false }));
-    scrollDown();
-  } catch {
-    /* ignore */
   }
 }
 
@@ -223,9 +174,7 @@ async function send() {
 .msg { max-width: 96%; padding: 8px 11px; border-radius: 10px; font-size: 13px; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; background: var(--accent); color: #fffdf8; }
 .msg.bot { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--border); width: 96%; }
-/* 工具調用軌跡(可收合 step by step) */
-.trace { display: flex; flex-direction: column; gap: 3px; }
-/* 每個工具步驟為獨立小對話框,較緊湊 */
+/* 工具調用軌跡:每個步驟為獨立小對話框,可收合查看原始資料 */
 .stepmsg { padding: 6px 11px; }
 .step {
   font-size: 11.5px; display: flex; gap: 6px; align-items: baseline; width: 100%;
@@ -245,14 +194,6 @@ async function send() {
   border-radius: 7px; padding: 8px 10px; font-size: 11px; line-height: 1.5;
   max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word;
 }
-.histrow {
-  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; margin-top: 6px;
-  background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
-  padding: 6px 9px; cursor: pointer; color: var(--text);
-}
-.histrow:hover { border-color: var(--accent); }
-.histrow .hl { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.histrow .ts { font-size: 11px; }
 .content { margin-top: 2px; }
 /* AI 回覆的 Markdown 呈現(v-html 內容需用 :deep) */
 /* 關鍵:覆蓋 .msg 的 white-space: pre-wrap,否則 markdown-it 產生的標籤間換行會變成可見空行 */
@@ -276,10 +217,11 @@ async function send() {
 .md :deep(th), .md :deep(td) { border: 1px solid var(--border); padding: 3px 7px; text-align: left; }
 .md :deep(th) { background: var(--bg-2); font-weight: 600; }
 
-.quickbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-top: 1px solid var(--border); }
+.quickbar { display: flex; gap: 8px; align-items: stretch; border-top: 1px solid var(--border); }
 .chip {
+  flex: 1; text-align: center;
   background: var(--bg-2); color: var(--text); border: 1px solid var(--border);
-  border-radius: 999px; padding: 5px 11px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+  border-radius: 999px; padding: 7px 11px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
 }
 .chip:hover:not(:disabled) { border-color: var(--accent); }
 .chip:disabled { opacity: .5; cursor: default; }
