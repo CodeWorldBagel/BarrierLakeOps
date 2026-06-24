@@ -1,4 +1,4 @@
-"""Tool 0 — list_lakes:列出可查詢堰塞湖清單(catalog + data.moa,依風險排序)。"""
+"""Tool 0 — list_lakes:列出可查詢堰塞湖清單(catalog + data.moa,警戒中→觀察中→已解除,次排 formed_at 新→舊)。"""
 
 from __future__ import annotations
 
@@ -66,11 +66,12 @@ async def list_lakes(status_filter: str = "all") -> ListLakesOutput:
     if status_filter != "all":
         summaries = [s for s in summaries if s.status == status_filter]
 
-    # 4) 依風險排序:alert 高 → 低,其次 headroom 小 → 大
+    # 4) 主排 status(警戒中→觀察中→已解除)；次排 formed_at 新→舊
+    STATUS_RANK = {"active": 2, "monitoring": 1, "archived": 0}
     summaries.sort(
         key=lambda s: (
-            -ALERT_RANK.get(s.alert_level, 0),
-            s.headroom_m if s.headroom_m is not None else 1e9,
+            -STATUS_RANK.get(s.status, 0),
+            [-ord(c) for c in (s.formed_at or "")],
         )
     )
 
