@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import logging
 import re
 import zipfile
@@ -22,15 +23,25 @@ import httpx
 import shapefile  # pyshp
 
 from .catalog import load_catalog
+from .config import get_settings
 
 logger = logging.getLogger("barrier_lake_ops.live_sources")
 
 MARGIN_DEG = 0.06  # 下游 bbox 外擴(約 6.5km),與 prep_geo 一致
+# 村里界 ZIP(tgos.tw)對非台灣 IP 會 403 地理封鎖;界線屬靜態(年才變),
+# 故 fetch_village_rows 改用本機 committed 村里界 + 只 live 下載人口(月變)。
 VILLAGE_ZIP_URL = (
     "https://www.tgos.tw/tgos/VirtualDir/Product/"
     "a04697c8-64db-450a-a105-3eb471c45abd/村(里)界(TWD97經緯度)1150511.zip"
 )
 POP_DATASET_API = "https://data.gov.tw/api/v2/rest/dataset/77132"
+# 部分政府站對預設 python UA 會擋,帶瀏覽器 UA 降低 403 風險
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+}
 
 
 def _lake_bboxes() -> list[tuple[float, float, float, float]]:
@@ -49,7 +60,7 @@ def _bbox_intersect(a, b) -> bool:
 def download_villages(timeout: float = 180) -> tuple[list[dict], set[str]]:
     """下載全國村里界 ZIP → 過濾下游村里。回傳 (features, kept_codes)。"""
     bboxes = _lake_bboxes()
-    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+    with httpx.Client(timeout=timeout, follow_redirects=True, headers=_HEADERS) as client:
         resp = client.get(VILLAGE_ZIP_URL)
         resp.raise_for_status()
         blob = resp.content
@@ -87,7 +98,7 @@ def download_villages(timeout: float = 180) -> tuple[list[dict], set[str]]:
 
 def _latest_pop_csv_url(timeout: float = 30) -> tuple[str, str]:
     """挑 77132 中最新一期(resourceDescription 開頭民國年月最大)的 CSV。"""
-    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+    with httpx.Client(timeout=timeout, follow_redirects=True, headers=_HEADERS) as client:
         resp = client.get(POP_DATASET_API)
         resp.raise_for_status()
         dists = [
@@ -108,7 +119,7 @@ def _latest_pop_csv_url(timeout: float = 30) -> tuple[str, str]:
 def download_population(kept_codes: set[str], timeout: float = 120) -> tuple[dict, str]:
     """下載最新一期全國人口 CSV → 過濾 kept_codes。回傳 (pop_by_code, 期別)。"""
     url, period = _latest_pop_csv_url()
-    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+    with httpx.Client(timeout=timeout, follow_redirects=True, headers=_HEADERS) as client:
         resp = client.get(url)
         resp.raise_for_status()
         text = resp.content.decode("utf-8-sig", errors="replace")
@@ -146,23 +157,37 @@ def download_population(kept_codes: set[str], timeout: float = 120) -> tuple[dic
 
 
 def fetch_village_rows() -> tuple[list[dict], str]:
-    """即時下載村里界 + 人口,合併成 DB 列。回傳 (rows, 來源描述)。"""
-    feats, kept = download_villages()
+    """合併村里界(本機 committed,靜態,避開 tgos.tw 地理封鎖)+ 人口(live 下載,月變)。
+
+    回傳 (rows, 來源描述)。人口下載失敗時拋例外,由收集器 fallback 純本機檔。
+    """
+    d = get_settings().data_dir / "villages"
+    gj = json.loads((d / "villages.geojson").read_text(encoding="utf-8"))
+    boundaries: list[tuple[str, dict, dict]] = []
+    kept: set[str] = set()
+    for f in gj.get("features", []):
+        p = f.get("properties", {})
+        code = str(p.get("villcode") or "").strip()
+        if not code:
+            continue
+        kept.add(code)
+        boundaries.append((code, p, f.get("geometry")))
+
     pop, period = download_population(kept)
     rows = []
-    for f in feats:
-        p = pop.get(f["villcode"], {})
+    for code, p, geom in boundaries:
+        pp = pop.get(code, {})
         rows.append(
             {
-                "village_code": str(f["villcode"]),
-                "county": f["county"],
-                "town": f["town"],
-                "village": f["village"],
-                "geometry": f["geometry"],
-                "households": int(p.get("households", 0) or 0),
-                "population": int(p.get("population", 0) or 0),
-                "elderly_65plus": int(p.get("elderly_65plus", 0) or 0),
-                "children_under6": int(p.get("children_under6", 0) or 0),
+                "village_code": code,
+                "county": p.get("county"),
+                "town": p.get("town"),
+                "village": p.get("village"),
+                "geometry": geom,
+                "households": int(pp.get("households", 0) or 0),
+                "population": int(pp.get("population", 0) or 0),
+                "elderly_65plus": int(pp.get("elderly_65plus", 0) or 0),
+                "children_under6": int(pp.get("children_under6", 0) or 0),
             }
         )
-    return rows, f"data.gov.tw 即時下載(人口期別 {period})"
+    return rows, f"村里界:本機靜態 + 人口:data.gov.tw 即時(期別 {period})"
