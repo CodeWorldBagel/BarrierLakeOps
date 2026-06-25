@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -105,14 +106,28 @@ async def ensure_dataset_rows(session: AsyncSession) -> None:
     await session.commit()
 
 
+def _collect_rows_sync() -> tuple[list[dict], str]:
+    """取得村里界 + 人口列:優先 data.gov.tw 即時下載,失敗則 fallback 本機預處理檔。"""
+    try:
+        from . import live_sources
+
+        return live_sources.fetch_village_rows()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("live 下載失敗,改用本機預處理檔: %s", exc)
+        return _load_village_features(), "本機預處理檔(live 下載失敗)"
+
+
 async def collect_villages(session: AsyncSession) -> int:
-    """載入村里界 + 人口 → villages 表;更新 villages / population 同步狀態。"""
+    """收集村里界 + 人口 → villages 表;更新 villages / population 同步狀態。
+
+    阻塞 I/O(下載 22MB ZIP + 解析 shapefile)以 ``to_thread`` 包起,避免卡事件迴圈。
+    """
     started = _now()
     await _upsert_sync(session, "villages", status="running", last_run_at=started)
     await _upsert_sync(session, "population", status="running", last_run_at=started)
     await session.commit()
     try:
-        rows = _load_village_features()
+        rows, source = await asyncio.to_thread(_collect_rows_sync)
         if rows:
             stmt = pg_insert(Village).values(rows)
             cols = {c: stmt.excluded[c] for c in rows[0] if c != "village_code"}
@@ -123,7 +138,7 @@ async def collect_villages(session: AsyncSession) -> int:
         for key in ("villages", "population"):
             await _upsert_sync(
                 session, key, status="ok", last_run_at=ts, last_success_at=ts,
-                last_changed_at=ts, row_count=len(rows), message=None,
+                last_changed_at=ts, row_count=len(rows), message=source,
             )
         await session.commit()
         return len(rows)
@@ -168,13 +183,31 @@ async def seed_manual(session: AsyncSession) -> None:
     await session.commit()
 
 
+async def _seed_villages_from_files(session: AsyncSession) -> None:
+    """啟動快速種子:用本機預處理檔(避免 22MB live 下載拖慢啟動;live 留給排程/手動)。"""
+    rows = _load_village_features()
+    if rows:
+        stmt = pg_insert(Village).values(rows)
+        cols = {c: stmt.excluded[c] for c in rows[0] if c != "village_code"}
+        await session.execute(
+            stmt.on_conflict_do_update(index_elements=["village_code"], set_=cols)
+        )
+    ts = _now()
+    for key in ("villages", "population"):
+        await _upsert_sync(
+            session, key, status="ok", last_run_at=ts, last_success_at=ts,
+            last_changed_at=ts, row_count=len(rows), message="啟動種子(本機檔);排程改 live 下載",
+        )
+    await session.commit()
+
+
 async def bootstrap(session: AsyncSession) -> None:
-    """啟動時:確保狀態列;DB 空則種子村里 + 人工維護。全程 defensive(失敗只降級)。"""
+    """啟動時:確保狀態列;DB 空則種子村里(本機檔,快)+ 人工維護。全程 defensive。"""
     try:
         await ensure_dataset_rows(session)
         cnt = (await session.execute(select(func.count()).select_from(Village))).scalar()
         if not cnt:
-            await collect_villages(session)
+            await _seed_villages_from_files(session)
         await seed_manual(session)
     except Exception as exc:  # noqa: BLE001
         logger.warning("data_sync bootstrap 降級: %s", exc)
