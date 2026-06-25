@@ -9,7 +9,9 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 
-from shapely.geometry import shape
+from shapely.geometry import GeometryCollection, Point, shape
+from shapely.ops import unary_union
+from shapely.strtree import STRtree
 
 from ..config import get_settings
 from ..schemas import DataSource
@@ -43,28 +45,122 @@ def _load_villages():
     return villages, pop
 
 
+@lru_cache
+def _load_village_spatial_index():
+    villages, pop = _load_villages()
+    geoms = [geom for _props, geom in villages]
+    tree = STRtree(geoms) if geoms else None
+    index_by_geometry_id = {id(geom): idx for idx, geom in enumerate(geoms)}
+    return villages, pop, index_by_geometry_id, tree
+
+
+def clear_population_cache() -> None:
+    load_cache_clear = getattr(_load_villages, "cache_clear", None)
+    if load_cache_clear is not None:
+        load_cache_clear()
+    _load_village_spatial_index.cache_clear()
+
+
+def _candidate_villages(query_geom):
+    villages, _pop, index_by_geometry_id, tree = _load_village_spatial_index()
+    if tree is None:
+        return []
+    raw_matches = tree.query(query_geom)
+    indexes: list[int] = []
+    for match in raw_matches:
+        try:
+            idx = int(match)
+        except (TypeError, ValueError):
+            idx = index_by_geometry_id.get(id(match), -1)
+        if 0 <= idx < len(villages):
+            indexes.append(idx)
+    return [villages[idx] for idx in sorted(set(indexes))]
+
+
+def _population_by_code():
+    _villages, pop, _index_by_geometry_id, _tree = _load_village_spatial_index()
+    return pop
+
+
+def _empty_result() -> dict:
+    return {
+        "affected_villages": [],
+        "total_households": 0,
+        "total_population": 0,
+        "elderly_65plus": 0,
+        "children_under6": 0,
+    }
+
+
+def _shape_geojson(geojson: dict):
+    if geojson.get("type") == "FeatureCollection":
+        geoms = []
+        for feat in geojson.get("features", []):
+            geom = feat.get("geometry") if isinstance(feat, dict) else None
+            if geom:
+                geoms.append(shape(geom))
+        return unary_union(geoms) if geoms else GeometryCollection()
+
+    return shape(geojson.get("geometry", geojson))
+
+
+def locate_point(lon: float, lat: float) -> dict | None:
+    """Return village administrative properties containing a lon/lat point."""
+    point = Point(lon, lat)
+    for props, vgeom in _candidate_villages(point):
+        if not vgeom.is_valid:
+            vgeom = vgeom.buffer(0)
+        if vgeom.is_empty:
+            continue
+        if vgeom.contains(point) or vgeom.touches(point):
+            return {
+                "village_code": props.get("villcode"),
+                "county": props.get("county"),
+                "town": props.get("town"),
+                "village": props.get("village"),
+            }
+    return None
+
+
 def intersect_population(polygon_geojson: dict) -> dict:
     """回傳受影響村里(與輸入 polygon 相交)及人口統計。"""
-    geom = polygon_geojson.get("geometry", polygon_geojson)
     try:
-        flood = shape(geom)
+        flood = _shape_geojson(polygon_geojson)
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"無效的 GeoJSON polygon: {exc}") from exc
+    if flood.is_empty:
+        return _empty_result()
     if not flood.is_valid:
         flood = flood.buffer(0)
+    if flood.is_empty:
+        return _empty_result()
 
-    villages, pop = _load_villages()
+    pop = _population_by_code()
     affected = []
     tot_house = tot_pop = tot_eld = tot_chi = 0
-    for props, vgeom in villages:
+    for props, vgeom in _candidate_villages(flood):
         if not flood.intersects(vgeom):
             continue
+        if not vgeom.is_valid:
+            vgeom = vgeom.buffer(0)
+        if vgeom.is_empty or vgeom.area <= 0:
+            continue
+        inter = flood.intersection(vgeom)
+        if inter.is_empty or inter.area <= 0:
+            continue
+        affected_area_ratio = max(0.0, min(1.0, float(inter.area / vgeom.area)))
+        population_estimate_ratio = min(1.0, affected_area_ratio * 1.30)
+
         code = props.get("villcode")
         p = pop.get(code, {})
-        house = int(p.get("households", 0) or 0)
-        population = int(p.get("population", 0) or 0)
-        eld = int(p.get("elderly_65plus", 0) or 0)
-        chi = int(p.get("children_under6", 0) or 0)
+        source_house = int(p.get("households", 0) or 0)
+        source_population = int(p.get("population", 0) or 0)
+        source_eld = int(p.get("elderly_65plus", 0) or 0)
+        source_chi = int(p.get("children_under6", 0) or 0)
+        house = int(round(source_house * population_estimate_ratio))
+        population = int(round(source_population * population_estimate_ratio))
+        eld = int(round(source_eld * population_estimate_ratio))
+        chi = int(round(source_chi * population_estimate_ratio))
         affected.append(
             {
                 "village_code": code,
@@ -73,6 +169,8 @@ def intersect_population(polygon_geojson: dict) -> dict:
                 "village": props.get("village"),
                 "households": house,
                 "population": population,
+                "affected_area_ratio": round(affected_area_ratio, 4),
+                "population_estimate_ratio": round(population_estimate_ratio, 4),
             }
         )
         tot_house += house
