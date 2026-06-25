@@ -3,7 +3,7 @@
     <div class="head">
       <div>
         <h1>資料同步狀況</h1>
-        <p class="muted small">各資料來源的更新狀態。即時資料查詢時抓取;排程資料每日更新;人工維護可即時編輯。</p>
+        <p class="muted small">各資料來源的更新狀態。即時資料查詢時抓取;排程資料每日自動更新。</p>
       </div>
       <button class="btn primary" :disabled="syncing || loading" @click="runSync">
         {{ syncing ? "更新中…" : "立即更新全部" }}
