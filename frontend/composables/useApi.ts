@@ -12,14 +12,19 @@ export const useApi = () => {
     listLakes: (filter = "all") => get(`/lakes?status_filter=${filter}`),
     lakeStatus: (id: string) => get(`/lakes/${id}/status`),
     lakeWeather: (id: string) => get(`/lakes/${id}/weather`),
-    inundation: (id: string, breach_scenario = "full") =>
-      post(`/lakes/${id}/inundation`, { breach_scenario }),
+    inundation: (
+      id: string,
+      breach_scenario = "full",
+      options: { model_variant?: string } = {},
+    ) => post(`/lakes/${id}/inundation`, { breach_scenario, ...options }),
     population: (polygon: any) => post(`/population`, { polygon }),
     briefing: (context: any, audience = "command_center", lake_id?: string) =>
       post(`/briefing`, { context, audience, lake_id }),
     listBriefings: (id: string) => get(`/lakes/${id}/briefings`),
     getBriefing: (bid: string) => get(`/briefings/${bid}`),
     chatHistory: (sid: string) => get(`/chat/sessions/${sid}`),
+    explainFloodCell: (lakeId: string, lon: number, lat: number, signal?: AbortSignal) =>
+      $fetch<any>(`${base}/lakes/${lakeId}/explain_cell?lon=${lon}&lat=${lat}`, { signal }),
   };
 };
 
