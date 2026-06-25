@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from ..schemas import ListLakesOutput, LakeStatusOutput, UpstreamWeatherOutput
+from ..tools.estimate_inundation import explain_flood_cell
 from ..tools.get_lake_status import get_lake_status
 from ..tools.get_upstream_weather import get_upstream_weather
 from ..tools.list_lakes import list_lakes
@@ -30,3 +31,9 @@ async def lake_weather_endpoint(
 ) -> UpstreamWeatherOutput:
     """Tool 2:上游集水區雨量與警戒。"""
     return await get_upstream_weather(lake_id, hours_back, hours_forward)
+
+
+@router.get("/lakes/{lake_id}/explain_cell")
+async def explain_cell_endpoint(lake_id: str, lon: float, lat: float) -> dict:
+    """查詢指定座標是否在潰壩淹水範圍內及原因,供地圖點擊互動使用。"""
+    return await explain_flood_cell(lake_id, lon, lat)

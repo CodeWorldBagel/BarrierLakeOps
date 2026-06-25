@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from ..db.engine import SessionLocal
 from ..db.repository import add_chat_message, create_chat_session
@@ -24,7 +25,7 @@ SYSTEM = (
     "你只能透過提供的工具取得資料(列出堰塞湖、查狀態、查上游雨量、估淹水、估影響人口),"
     "不得使用工具以外的知識編造數字,也不得進行通用網路搜尋。"
     "需要態勢摘要時,請逐一呼叫上述資料工具分別取得資料後,再由你自行彙整撰寫(無另外的摘要工具)。"
-    "淹水為 MVP 簡化模型,需註明;水位若為情境基準快照需說明非即時。"
+    "淹水推估預設使用 MVP；一般快速推估使用 MVP；要求完整研判、安全包絡線或 model_variant=dem_screening 時用 dem_screening"
     "你只提供研判與建議,不得宣稱已發送撤離簡訊、致電消防或觸發警報——對外通知由人類執行。"
     "撤離決策保留給人類指揮官。請用繁體中文,以對話口語精簡作答:"
     "先給一句結論,再視需要補最多 3~5 點重點;數據點到即可,不要逐筆重述或逐一列舉"
@@ -80,6 +81,7 @@ TOOL_SPECS = [
                 "properties": {
                     "lake_id": {"type": "string"},
                     "breach_scenario": {"type": "string", "enum": ["full", "partial"]},
+                    "model_variant": {"type": "string", "enum": ["mvp", "dem_screening"]},
                 },
                 "required": ["lake_id"],
             },
@@ -95,6 +97,7 @@ TOOL_SPECS = [
                 "properties": {
                     "lake_id": {"type": "string"},
                     "breach_scenario": {"type": "string", "enum": ["full", "partial"]},
+                    "model_variant": {"type": "string", "enum": ["mvp", "dem_screening"]},
                 },
                 "required": ["lake_id"],
             },
@@ -103,7 +106,21 @@ TOOL_SPECS = [
 ]
 
 
-async def _execute(name: str, args: dict) -> dict:
+async def _get_or_estimate_inundation(args: dict, cache: dict[tuple[str, str, str], Any]) -> Any:
+    lake_id = args["lake_id"]
+    breach_scenario = args.get("breach_scenario", "full")
+    model_variant = args.get("model_variant", "mvp")
+    key = (lake_id, breach_scenario, model_variant)
+    if key not in cache:
+        cache[key] = await estimate_inundation(
+            lake_id,
+            breach_scenario,
+            model_variant=model_variant,
+        )
+    return cache[key]
+
+
+async def _execute(name: str, args: dict, inundation_cache: dict[tuple[str, str, str], Any]) -> dict:
     """執行工具,回傳給 LLM 的精簡結果(不含大型 GeoJSON)。"""
     if name == "list_lakes":
         out = await list_lakes(args.get("status_filter", "all"))
@@ -120,11 +137,11 @@ async def _execute(name: str, args: dict) -> dict:
     if name == "get_upstream_weather":
         return (await get_upstream_weather(args["lake_id"])).model_dump()
     if name == "estimate_inundation":
-        inu = await estimate_inundation(args["lake_id"], args.get("breach_scenario", "full"))
+        inu = await _get_or_estimate_inundation(args, inundation_cache)
         # 保留完整 polygon 給前端畫地圖;餵 LLM 前才在 run_chat 裡剝除(裁切只在呈現/LLM 邊界)。
         return inu.model_dump()
     if name == "get_affected_population":
-        inu = await estimate_inundation(args["lake_id"], args.get("breach_scenario", "full"))
+        inu = await _get_or_estimate_inundation(args, inundation_cache)
         pop = await get_affected_population(inu.inundation_polygon)
         return pop.model_dump()
     return {"error": f"unknown tool {name}"}
@@ -166,6 +183,7 @@ async def run_chat(
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": message + ("\n" + hint if hint else "")},
     ]
+    inundation_cache: dict[tuple[str, str, str], Any] = {}
 
     try:
         for _ in range(8):  # 最多 8 輪工具調用
@@ -192,9 +210,9 @@ async def run_chat(
                 except json.JSONDecodeError:
                     args = {}
                 yield sse({"type": "tool_call", "name": name, "args": args})
-                result = await _execute(name, args)
+                result = await _execute(name, args, inundation_cache)
                 # 前端拿完整結果(含 polygon)畫卡片與地圖;LLM 與稽核只留精簡(剝除大型 GeoJSON)。
-                lean = {k: v for k, v in result.items() if k != "inundation_polygon"}
+                lean = {k: v for k, v in result.items() if k not in {"inundation_polygon", "envelope_polygon"}}
                 yield sse({"type": "tool_result", "name": name, "result": result})
                 if sid:
                     async with SessionLocal() as db:

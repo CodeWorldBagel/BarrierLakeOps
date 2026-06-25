@@ -14,6 +14,7 @@ from fastmcp import FastMCP
 from .schemas import BriefingAudience
 from .tools.compose_briefing import compose_briefing as _compose
 from .tools.estimate_inundation import estimate_inundation as _inundation
+from .tools.estimate_inundation import explain_flood_cell as _explain_cell
 from .tools.get_affected_population import get_affected_population as _population
 from .tools.get_lake_status import get_lake_status as _status
 from .tools.get_upstream_weather import get_upstream_weather as _weather
@@ -53,12 +54,21 @@ async def get_upstream_weather(lake_id: str, hours_back: int = 24, hours_forward
 
 @mcp.tool
 async def estimate_inundation(
-    lake_id: str, breach_scenario: str = "full", breach_volume_million_m3: float | None = None
+    lake_id: str,
+    breach_scenario: str = "full",
+    breach_volume_million_m3: float | None = None,
+    model_variant: str = "mvp",
 ) -> dict:
-    """推估潰壩淹水範圍(真實 DEM + MVP 簡化模型),輸出 GeoJSON 與深度/抵達時間。
+    """推估潰壩淹水範圍。model_variant: mvp(預設,向下相容)|dem_screening(DEM-only 下游流路+谷地約束+體積守恆)"""
+    return (
+        await _inundation(lake_id, breach_scenario, breach_volume_million_m3, model_variant)
+    ).model_dump()
 
-    ⚠ 結果為 MVP 簡化模型估算,非工程級水文模型,引用時務必註明。breach_scenario: full|partial。"""
-    return (await _inundation(lake_id, breach_scenario, breach_volume_million_m3)).model_dump()
+
+@mcp.tool
+async def explain_flood_cell(lake_id: str, lon: float, lat: float) -> dict:
+    """查詢指定經緯度座標為何在(或不在)潰壩淹水範圍內,供地圖點擊互動或 LLM 解說使用。"""
+    return await _explain_cell(lake_id, lon, lat)
 
 
 @mcp.tool
