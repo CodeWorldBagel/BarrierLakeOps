@@ -87,31 +87,18 @@
           <span class="muted">{{ s.updated_by }} · {{ s.updated_at ? fmt(s.updated_at) : "—" }}</span>
           <button class="btn sm" @click="editState(s)">編輯</button>
         </div>
-        <div v-for="t in status.lake_thresholds" :key="'th-' + t.lake_id" class="row">
-          <span class="nm">警戒門檻 · {{ t.lake_id }}</span>
-          <span class="muted">溢流 {{ t.overflow_elevation_m ?? "—" }} m</span>
-          <span class="muted">{{ t.updated_by }} · {{ t.updated_at ? fmt(t.updated_at) : "—" }}</span>
-          <button class="btn sm" @click="editThreshold(t)">編輯</button>
-        </div>
+        <p class="muted small mt">堰塞湖即時水位未開放於 open data,由應變中心依現地回報手動更新。</p>
       </section>
     </template>
 
     <!-- 編輯彈窗 -->
     <div v-if="editing" class="modal-bg" @click.self="editing = null">
       <div class="modal panel panel-pad">
-        <h3>{{ editing.type === "state" ? "編輯水位" : "編輯警戒門檻" }} · {{ editing.lake_id }}</h3>
-        <template v-if="editing.type === 'state'">
-          <label>水位(m)<input v-model.number="form.water_level_m" type="number" step="0.1" /></label>
-          <label>蓄水量(百萬 m³)<input v-model.number="form.storage_million_m3" type="number" step="0.1" /></label>
-          <label>觀測時間<input v-model="form.observed_at" type="text" placeholder="2026-06-23T18:00:00+08:00" /></label>
-          <label>備註<textarea v-model="form.note" rows="2" /></label>
-        </template>
-        <template v-else>
-          <label>溢流高程(m)<input v-model.number="form.overflow_elevation_m" type="number" step="0.1" /></label>
-          <label>紅色警戒 headroom(m)<input v-model.number="form.red_alert_headroom_m" type="number" step="0.1" /></label>
-          <label>橙色警戒 headroom(m)<input v-model.number="form.orange_alert_headroom_m" type="number" step="0.1" /></label>
-          <label>黃色警戒 headroom(m)<input v-model.number="form.yellow_alert_headroom_m" type="number" step="0.1" /></label>
-        </template>
+        <h3>編輯水位 · {{ editing.lake_id }}</h3>
+        <label>水位(m)<input v-model.number="form.water_level_m" type="number" step="0.1" /></label>
+        <label>蓄水量(百萬 m³)<input v-model.number="form.storage_million_m3" type="number" step="0.1" /></label>
+        <label>觀測時間<input v-model="form.observed_at" type="text" placeholder="2026-06-23T18:00:00+08:00" /></label>
+        <label>備註<textarea v-model="form.note" rows="2" /></label>
         <div class="modal-actions">
           <button class="btn" @click="editing = null">取消</button>
           <button class="btn primary" :disabled="saving" @click="save">{{ saving ? "儲存中…" : "儲存" }}</button>
@@ -203,30 +190,22 @@ async function doUpload() {
 }
 
 // 編輯彈窗
-const editing = ref<{ type: "state" | "threshold"; lake_id: string } | null>(null);
+const editing = ref<{ lake_id: string } | null>(null);
 const form = reactive<any>({});
 const saving = ref(false);
 
 function editState(s: any) {
-  editing.value = { type: "state", lake_id: s.lake_id };
+  editing.value = { lake_id: s.lake_id };
   Object.assign(form, {
     water_level_m: s.water_level_m, storage_million_m3: s.storage_million_m3,
     observed_at: s.observed_at, note: s.note,
-  });
-}
-function editThreshold(t: any) {
-  editing.value = { type: "threshold", lake_id: t.lake_id };
-  Object.assign(form, {
-    overflow_elevation_m: t.overflow_elevation_m, red_alert_headroom_m: t.red_alert_headroom_m,
-    orange_alert_headroom_m: t.orange_alert_headroom_m, yellow_alert_headroom_m: t.yellow_alert_headroom_m,
   });
 }
 async function save() {
   if (!editing.value) return;
   saving.value = true;
   try {
-    if (editing.value.type === "state") await api.patchLakeState(editing.value.lake_id, { ...form });
-    else await api.patchLakeThreshold(editing.value.lake_id, { ...form });
+    await api.patchLakeState(editing.value.lake_id, { ...form });
     editing.value = null;
     await load();
   } catch (e: any) {

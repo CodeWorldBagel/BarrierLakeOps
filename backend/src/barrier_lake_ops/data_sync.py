@@ -15,7 +15,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,7 +39,6 @@ DATASETS = [
     {"key": "villages", "label": "村里界", "source": "內政部國土測繪中心", "kind": "scheduled"},
     {"key": "dem", "label": "DEM 高程", "source": "NASA SRTM 30m", "kind": "static"},
     {"key": "lake_water_level", "label": "堰塞湖水位", "source": "人工維護", "kind": "manual"},
-    {"key": "alert_threshold", "label": "警戒門檻", "source": "人工維護", "kind": "manual"},
 ]
 _META = {d["key"]: d for d in DATASETS}
 
@@ -103,6 +102,9 @@ async def ensure_dataset_rows(session: AsyncSession) -> None:
             continue
         status, message = info.get(d["kind"], ("pending", None))
         await _upsert_sync(session, d["key"], status=status, message=message)
+    # 清掉已不在 registry 的舊狀態列(例如移除的 alert_threshold)
+    keys = [d["key"] for d in DATASETS]
+    await session.execute(delete(DatasetSync).where(DatasetSync.key.notin_(keys)))
     await session.commit()
 
 
@@ -179,7 +181,6 @@ async def seed_manual(session: AsyncSession) -> None:
                     yellow_alert_headroom_m=th.yellow_alert_headroom_m, updated_by="系統匯入",
                 )
             )
-        await _upsert_sync(session, "alert_threshold", status="ok", last_changed_at=_now(), message="自 catalog 匯入")
     await session.commit()
 
 
