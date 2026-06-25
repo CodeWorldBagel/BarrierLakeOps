@@ -5,10 +5,22 @@ export const useApi = () => {
   const get = <T = any>(path: string) => $fetch<T>(base + path);
   const post = <T = any>(path: string, body: any) =>
     $fetch<T>(base + path, { method: "POST", body });
+  const patch = <T = any>(path: string, body: any) =>
+    $fetch<T>(base + path, { method: "PATCH", body });
 
   return {
     base,
     health: () => get("/health"),
+    // 資料同步
+    dataStatus: () => get("/data/status"),
+    triggerSync: () => post("/data/sync", {}),
+    patchLakeState: (id: string, body: any) => patch(`/data/lake-state/${id}`, body),
+    patchLakeThreshold: (id: string, body: any) => patch(`/data/lake-threshold/${id}`, body),
+    uploadLakes: (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      return $fetch(base + "/data/lakes/upload", { method: "POST", body: fd });
+    },
     listLakes: (filter = "all") => get(`/lakes?status_filter=${filter}`),
     lakeStatus: (id: string) => get(`/lakes/${id}/status`),
     lakeWeather: (id: string) => get(`/lakes/${id}/weather`),

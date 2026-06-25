@@ -30,39 +30,85 @@ SOURCE_POP = DataSource(
 )
 
 
+# 統一村里記錄格式:(shapely 幾何, 欄位含人口)。檔案版與 DB 版都產出這個格式。
 @lru_cache
-def _load_villages():
+def _load_villages_from_files() -> list[tuple]:
     d = get_settings().data_dir / "villages"
     gj = json.loads((d / "villages.geojson").read_text(encoding="utf-8"))
     pop = json.loads((d / "population.json").read_text(encoding="utf-8"))
-    villages = []
+    out: list[tuple] = []
     for feat in gj["features"]:
         try:
             geom = shape(feat["geometry"])
         except Exception:  # noqa: BLE001
             continue
-        villages.append((feat["properties"], geom))
-    return villages, pop
+        props = feat["properties"]
+        pinfo = pop.get(props.get("villcode"), {})
+        out.append(
+            (
+                geom,
+                {
+                    "village_code": props.get("villcode"),
+                    "county": props.get("county"),
+                    "town": props.get("town"),
+                    "village": props.get("village"),
+                    "households": int(pinfo.get("households", 0) or 0),
+                    "population": int(pinfo.get("population", 0) or 0),
+                    "elderly_65plus": int(pinfo.get("elderly_65plus", 0) or 0),
+                    "children_under6": int(pinfo.get("children_under6", 0) or 0),
+                },
+            )
+        )
+    return out
+
+
+def villages_from_db_rows(rows) -> list[tuple]:
+    """把 DB Village ORM 列轉成統一村里記錄格式。"""
+    out: list[tuple] = []
+    for row in rows:
+        if not row.geometry:
+            continue
+        try:
+            geom = shape(row.geometry)
+        except Exception:  # noqa: BLE001
+            continue
+        out.append(
+            (
+                geom,
+                {
+                    "village_code": row.village_code,
+                    "county": row.county,
+                    "town": row.town,
+                    "village": row.village,
+                    "households": row.households or 0,
+                    "population": row.population or 0,
+                    "elderly_65plus": row.elderly_65plus or 0,
+                    "children_under6": row.children_under6 or 0,
+                },
+            )
+        )
+    return out
+
+
+def _build_spatial_index(villages: list[tuple]):
+    geoms = [geom for geom, _fields in villages]
+    tree = STRtree(geoms) if geoms else None
+    index_by_geometry_id = {id(geom): idx for idx, geom in enumerate(geoms)}
+    return villages, index_by_geometry_id, tree
 
 
 @lru_cache
-def _load_village_spatial_index():
-    villages, pop = _load_villages()
-    geoms = [geom for _props, geom in villages]
-    tree = STRtree(geoms) if geoms else None
-    index_by_geometry_id = {id(geom): idx for idx, geom in enumerate(geoms)}
-    return villages, pop, index_by_geometry_id, tree
+def _load_village_spatial_index_from_files():
+    return _build_spatial_index(_load_villages_from_files())
 
 
 def clear_population_cache() -> None:
-    load_cache_clear = getattr(_load_villages, "cache_clear", None)
-    if load_cache_clear is not None:
-        load_cache_clear()
-    _load_village_spatial_index.cache_clear()
+    _load_villages_from_files.cache_clear()
+    _load_village_spatial_index_from_files.cache_clear()
 
 
-def _candidate_villages(query_geom):
-    villages, _pop, index_by_geometry_id, tree = _load_village_spatial_index()
+def _candidate_villages(query_geom, spatial_index):
+    villages, index_by_geometry_id, tree = spatial_index
     if tree is None:
         return []
     raw_matches = tree.query(query_geom)
@@ -75,11 +121,6 @@ def _candidate_villages(query_geom):
         if 0 <= idx < len(villages):
             indexes.append(idx)
     return [villages[idx] for idx in sorted(set(indexes))]
-
-
-def _population_by_code():
-    _villages, pop, _index_by_geometry_id, _tree = _load_village_spatial_index()
-    return pop
 
 
 def _empty_result() -> dict:
@@ -107,23 +148,28 @@ def _shape_geojson(geojson: dict):
 def locate_point(lon: float, lat: float) -> dict | None:
     """Return village administrative properties containing a lon/lat point."""
     point = Point(lon, lat)
-    for props, vgeom in _candidate_villages(point):
+    for vgeom, fields in _candidate_villages(
+        point, _load_village_spatial_index_from_files()
+    ):
         if not vgeom.is_valid:
             vgeom = vgeom.buffer(0)
         if vgeom.is_empty:
             continue
         if vgeom.contains(point) or vgeom.touches(point):
             return {
-                "village_code": props.get("villcode"),
-                "county": props.get("county"),
-                "town": props.get("town"),
-                "village": props.get("village"),
+                "village_code": fields.get("village_code"),
+                "county": fields.get("county"),
+                "town": fields.get("town"),
+                "village": fields.get("village"),
             }
     return None
 
 
-def intersect_population(polygon_geojson: dict) -> dict:
-    """回傳受影響村里(與輸入 polygon 相交)及人口統計。"""
+def intersect_population(polygon_geojson: dict, villages: list[tuple] | None = None) -> dict:
+    """回傳受影響村里(與輸入 polygon 相交)及人口統計。
+
+    villages 為統一村里記錄(DB 優先);None 則讀本機預處理檔。
+    """
     try:
         flood = _shape_geojson(polygon_geojson)
     except Exception as exc:  # noqa: BLE001
@@ -135,10 +181,14 @@ def intersect_population(polygon_geojson: dict) -> dict:
     if flood.is_empty:
         return _empty_result()
 
-    pop = _population_by_code()
+    if villages is None:
+        spatial_index = _load_village_spatial_index_from_files()
+    else:
+        spatial_index = _build_spatial_index(villages)
+
     affected = []
     tot_house = tot_pop = tot_eld = tot_chi = 0
-    for props, vgeom in _candidate_villages(flood):
+    for vgeom, fields in _candidate_villages(flood, spatial_index):
         if not flood.intersects(vgeom):
             continue
         if not vgeom.is_valid:
@@ -151,32 +201,26 @@ def intersect_population(polygon_geojson: dict) -> dict:
         affected_area_ratio = max(0.0, min(1.0, float(inter.area / vgeom.area)))
         population_estimate_ratio = min(1.0, affected_area_ratio * 1.30)
 
-        code = props.get("villcode")
-        p = pop.get(code, {})
-        source_house = int(p.get("households", 0) or 0)
-        source_population = int(p.get("population", 0) or 0)
-        source_eld = int(p.get("elderly_65plus", 0) or 0)
-        source_chi = int(p.get("children_under6", 0) or 0)
-        house = int(round(source_house * population_estimate_ratio))
-        population = int(round(source_population * population_estimate_ratio))
-        eld = int(round(source_eld * population_estimate_ratio))
-        chi = int(round(source_chi * population_estimate_ratio))
+        households = int(round(int(fields["households"]) * population_estimate_ratio))
+        population = int(round(int(fields["population"]) * population_estimate_ratio))
+        elderly = int(round(int(fields["elderly_65plus"]) * population_estimate_ratio))
+        children = int(round(int(fields["children_under6"]) * population_estimate_ratio))
         affected.append(
             {
-                "village_code": code,
-                "county": props.get("county"),
-                "town": props.get("town"),
-                "village": props.get("village"),
-                "households": house,
+                "village_code": fields["village_code"],
+                "county": fields["county"],
+                "town": fields["town"],
+                "village": fields["village"],
+                "households": households,
                 "population": population,
                 "affected_area_ratio": round(affected_area_ratio, 4),
                 "population_estimate_ratio": round(population_estimate_ratio, 4),
             }
         )
-        tot_house += house
+        tot_house += households
         tot_pop += population
-        tot_eld += eld
-        tot_chi += chi
+        tot_eld += elderly
+        tot_chi += children
 
     affected.sort(key=lambda v: v["population"], reverse=True)
     return {

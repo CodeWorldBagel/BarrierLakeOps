@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -26,12 +27,38 @@ logger = logging.getLogger("barrier_lake_ops")
 mcp_app = mcp.http_app(path="/")
 
 
+async def _daily_sync_loop() -> None:
+    """每日自動收集(村里 / 人口 → DB)。獨立 Zeabur cron service 亦可改跑
+    ``python -m barrier_lake_ops.sync_job``;此 in-app 排程確保部署即生效。"""
+    from . import data_sync
+
+    while True:
+        await asyncio.sleep(24 * 3600)
+        try:
+            async with db.SessionLocal() as session:
+                await data_sync.run_scheduled(session)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("每日同步失敗(降級): %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with mcp_app.lifespan(app):
         # 啟動時建表(MVP:create_all;DB 不可用時降級,不阻擋非 DB 端點)
         await db.init_models()
-        yield
+        # 資料同步 bootstrap:確保狀態列、DB 空則種子村里 + 人工維護(內部 defensive)
+        try:
+            from . import data_sync
+
+            async with db.SessionLocal() as _session:
+                await data_sync.bootstrap(_session)
+        except Exception:  # noqa: BLE001
+            pass
+        _sync_task = asyncio.create_task(_daily_sync_loop())
+        try:
+            yield
+        finally:
+            _sync_task.cancel()
 
 
 app = FastAPI(
@@ -87,12 +114,13 @@ async def info() -> dict:
     }
 
 
-from .routers import briefing, chat, geo, lakes  # noqa: E402
+from .routers import briefing, chat, data, geo, lakes  # noqa: E402
 
 app.include_router(lakes.router)
 app.include_router(geo.router)
 app.include_router(briefing.router)
 app.include_router(chat.router)
+app.include_router(data.router)
 
 # 遠端 MCP endpoint(streamable-HTTP):https://<api-host>/mcp
 app.mount("/mcp", mcp_app)

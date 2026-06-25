@@ -6,10 +6,14 @@
 
 from __future__ import annotations
 
+from sqlalchemy import select
+
 from ..adapters import AdapterError
 from ..adapters.moa import DATA_SOURCE as MOA_SOURCE
 from ..adapters.moa import fetch_moa_lakes
-from ..catalog import load_catalog
+from ..catalog import ReferenceState, load_catalog
+from ..db.engine import SessionLocal
+from ..db.models import LakeState, LakeThreshold
 from ..schemas import AlertLevel, DataSource, Freshness, LakeStatusOutput
 from . import alert_from_headroom, compute_headroom
 
@@ -21,11 +25,51 @@ CATALOG_SOURCE = DataSource(
 )
 
 
+async def _db_overrides(lake_id: str):
+    """DB 的水位 / 門檻覆寫(人工維護編輯)。DB 不可用或無資料 → (None, None),fallback catalog。"""
+    try:
+        async with SessionLocal() as s:
+            st = (await s.execute(select(LakeState).where(LakeState.lake_id == lake_id))).scalar_one_or_none()
+            th = (await s.execute(select(LakeThreshold).where(LakeThreshold.lake_id == lake_id))).scalar_one_or_none()
+            return st, th
+    except Exception:  # noqa: BLE001
+        return None, None
+
+
+def _apply_overrides(lake, st, th):
+    lake = lake.model_copy(deep=True)
+    if st is not None:
+        rs = lake.reference_state or ReferenceState()
+        if st.water_level_m is not None:
+            rs.water_level_m = st.water_level_m
+        if st.storage_million_m3 is not None:
+            rs.storage_million_m3 = st.storage_million_m3
+        if st.observed_at is not None:
+            rs.observed_at = st.observed_at
+        if st.note is not None:
+            rs.note = st.note
+        lake.reference_state = rs
+    if th is not None:
+        t = lake.threshold
+        if th.overflow_elevation_m is not None:
+            t.overflow_elevation_m = th.overflow_elevation_m
+        if th.red_alert_headroom_m is not None:
+            t.red_alert_headroom_m = th.red_alert_headroom_m
+        if th.orange_alert_headroom_m is not None:
+            t.orange_alert_headroom_m = th.orange_alert_headroom_m
+        if th.yellow_alert_headroom_m is not None:
+            t.yellow_alert_headroom_m = th.yellow_alert_headroom_m
+    return lake
+
+
 async def get_lake_status(lake_id: str) -> LakeStatusOutput:
     cat = load_catalog()
     lake = cat.get(lake_id)
 
     if lake is not None:
+        st, th = await _db_overrides(lake_id)
+        if st is not None or th is not None:
+            lake = _apply_overrides(lake, st, th)
         return _status_from_catalog(lake)
 
     # 不在 catalog → 嘗試 data.moa metadata
