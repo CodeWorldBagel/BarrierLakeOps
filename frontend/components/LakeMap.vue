@@ -6,6 +6,8 @@
 const props = defineProps<{
   lakes?: any[];
   inundation?: any;
+  envelope?: any;
+  lakeId?: string;
   selectedId?: string;
   center?: [number, number];
   zoom?: number;
@@ -17,7 +19,9 @@ let map: any = null;
 let L: any = null;
 let markerLayer: any = null;
 let floodLayer: any = null;
+let envelopeLayer: any = null;
 let ro: any = null;
+let floodCellClick: { cleanup: () => void } | null = null;
 
 // 與清單徽章一致(文青霧霾調)
 const alertColors: Record<string, string> = {
@@ -51,8 +55,17 @@ onMounted(async () => {
   }).addTo(map);
   markerLayer = L.layerGroup().addTo(map);
   floodLayer = L.layerGroup().addTo(map);
+  envelopeLayer = L.layerGroup().addTo(map);
   renderMarkers();
   renderFlood();
+  renderEnvelope();
+
+  floodCellClick = setupFloodCellClick({
+    L,
+    map,
+    api: useApi(),
+    getLakeId: () => props.lakeId,
+  });
   // grid/flex 容器在 mount 後才定尺寸,Leaflet 需重新計算避免灰底
   setTimeout(() => map && map.invalidateSize(), 200);
   if (typeof ResizeObserver !== "undefined" && el.value) {
@@ -95,9 +108,22 @@ function renderFlood() {
   }
 }
 
+function renderEnvelope() {
+  if (!map || !envelopeLayer) return;
+  envelopeLayer.clearLayers();
+  if (!props.envelope || !props.envelope.geometry) return;
+  L.geoJSON(props.envelope, {
+    style: {
+      color: "#3d7d9a", weight: 1, dashArray: "5,5",
+      fillColor: "#5a9bbd", fillOpacity: 0.10,
+    },
+  }).addTo(envelopeLayer);
+}
+
 watch(() => props.lakes, renderMarkers, { deep: true });
 watch(() => props.selectedId, renderMarkers);
 watch(() => props.inundation, renderFlood, { deep: true });
+watch(() => props.envelope, renderEnvelope, { deep: true });
 watch(
   () => props.center,
   (c) => {
@@ -106,6 +132,10 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  if (floodCellClick) {
+    floodCellClick.cleanup();
+    floodCellClick = null;
+  }
   if (ro) ro.disconnect();
   if (map) map.remove();
 });

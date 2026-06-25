@@ -12,14 +12,21 @@
       <div class="col mapcol">
         <div class="panel mapwrap">
           <ClientOnly>
-            <LakeMap :lakes="mapLakes" :inundation="inundationFeature" :center="center" :zoom="12" />
+            <LakeMap
+              :lakes="mapLakes"
+              :inundation="inundationFeature"
+              :envelope="envelopeFeature"
+              :lake-id="id"
+              :center="center"
+              :zoom="12"
+            />
           </ClientOnly>
         </div>
       </div>
 
       <!-- 右:Chat 作戰助手(淹水/人口/摘要皆透過對話與快速鍵呈現) -->
       <div class="col chatcol">
-        <ChatPanel ref="chatRef" :lake-id="id" @inundation="onInundation" />
+        <ChatPanel ref="chatRef" :lake-id="id" @inundation="onInundation" @envelope="onEnvelope" />
       </div>
     </div>
   </div>
@@ -46,9 +53,11 @@ const center = computed<[number, number] | undefined>(() =>
     : undefined,
 );
 
-// 淹水圖層:由 ChatPanel 的 estimate_inundation 工具結果回填
+// 淹水圖層 + 安全包絡線:由 ChatPanel 的 estimate_inundation 工具結果回填
 const inundationFeature = ref<any>(null);
+const envelopeFeature = ref<any>(null);
 const onInundation = (polygon: any) => (inundationFeature.value = polygon);
+const onEnvelope = (polygon: any) => (envelopeFeature.value = polygon);
 
 // 左欄「推估淹水」按鈕 → 模擬使用者在右側對話送出訊息(走 function call,
 // 結果同時套疊地圖 + 由 AI 回覆),左欄不展開、不跑版。
