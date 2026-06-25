@@ -78,33 +78,7 @@
         </div>
       </section>
 
-      <!-- 人工維護 -->
-      <section class="panel panel-pad sec">
-        <h3>✋ 人工維護 <span class="shint">應變中心可即時編輯,寫 DB + 記錄時間</span></h3>
-        <div v-for="s in status.lake_states" :key="'st-' + s.lake_id" class="row">
-          <span class="nm">堰塞湖水位 · {{ s.lake_id }}</span>
-          <span class="muted">水位 {{ s.water_level_m ?? "—" }} m</span>
-          <span class="muted">{{ s.updated_by }} · {{ s.updated_at ? fmt(s.updated_at) : "—" }}</span>
-          <button class="btn sm" @click="editState(s)">編輯</button>
-        </div>
-        <p class="muted small mt">堰塞湖即時水位未開放於 open data,由應變中心依現地回報手動更新。</p>
-      </section>
     </template>
-
-    <!-- 編輯彈窗 -->
-    <div v-if="editing" class="modal-bg" @click.self="editing = null">
-      <div class="modal panel panel-pad">
-        <h3>編輯水位 · {{ editing.lake_id }}</h3>
-        <label>水位(m)<input v-model.number="form.water_level_m" type="number" step="0.1" /></label>
-        <label>蓄水量(百萬 m³)<input v-model.number="form.storage_million_m3" type="number" step="0.1" /></label>
-        <label>觀測時間<input v-model="form.observed_at" type="text" placeholder="2026-06-23T18:00:00+08:00" /></label>
-        <label>備註<textarea v-model="form.note" rows="2" /></label>
-        <div class="modal-actions">
-          <button class="btn" @click="editing = null">取消</button>
-          <button class="btn primary" :disabled="saving" @click="save">{{ saving ? "儲存中…" : "儲存" }}</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -189,31 +163,6 @@ async function doUpload() {
   }
 }
 
-// 編輯彈窗
-const editing = ref<{ lake_id: string } | null>(null);
-const form = reactive<any>({});
-const saving = ref(false);
-
-function editState(s: any) {
-  editing.value = { lake_id: s.lake_id };
-  Object.assign(form, {
-    water_level_m: s.water_level_m, storage_million_m3: s.storage_million_m3,
-    observed_at: s.observed_at, note: s.note,
-  });
-}
-async function save() {
-  if (!editing.value) return;
-  saving.value = true;
-  try {
-    await api.patchLakeState(editing.value.lake_id, { ...form });
-    editing.value = null;
-    await load();
-  } catch (e: any) {
-    error.value = e?.message || String(e);
-  } finally {
-    saving.value = false;
-  }
-}
 </script>
 
 <style scoped>

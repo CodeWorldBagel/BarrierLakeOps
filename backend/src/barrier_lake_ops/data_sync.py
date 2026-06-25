@@ -38,7 +38,6 @@ DATASETS = [
     {"key": "population", "label": "村里戶數 / 人口", "source": "內政部戶政司", "kind": "scheduled"},
     {"key": "villages", "label": "村里界", "source": "內政部國土測繪中心", "kind": "scheduled"},
     {"key": "dem", "label": "DEM 高程", "source": "NASA SRTM 30m", "kind": "static"},
-    {"key": "lake_water_level", "label": "堰塞湖水位", "source": "人工維護", "kind": "manual"},
 ]
 _META = {d["key"]: d for d in DATASETS}
 
@@ -169,7 +168,6 @@ async def seed_manual(session: AsyncSession) -> None:
                     note=rs.note, updated_by="系統匯入",
                 )
             )
-        await _upsert_sync(session, "lake_water_level", status="ok", last_changed_at=_now(), message="自 catalog 匯入")
     if not has_thr:
         for lk in cat.lakes:
             th = lk.threshold
