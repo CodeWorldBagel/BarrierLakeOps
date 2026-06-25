@@ -25,6 +25,7 @@ async def inundation_endpoint(
         lake_id,
         breach_scenario=body.breach_scenario,
         breach_volume_million_m3=body.breach_volume_million_m3,
+        model_variant=body.model_variant,
     )
 
 

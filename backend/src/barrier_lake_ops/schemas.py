@@ -110,9 +110,19 @@ class UpstreamWeatherOutput(BaseModel):
 # --------------------------------------------------------------------------- #
 # Tool 3 — estimate_inundation
 # --------------------------------------------------------------------------- #
+class StageResultModel(BaseModel):
+    """一個推估步驟的結構化輸出,供 LLM 逐步解說。"""
+    name: str
+    summary: str
+    key_values: dict[str, Any] = Field(default_factory=dict)
+    detail: list[dict[str, Any]] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class InundationInput(BaseModel):
     breach_scenario: Literal["partial", "full"] = "full"
     breach_volume_million_m3: float | None = None
+    model_variant: Literal["mvp", "dem_screening"] = "mvp" # "directional", "impact_area", "seed_fill"
 
 
 class InundationOutput(BaseModel):
@@ -125,6 +135,10 @@ class InundationOutput(BaseModel):
     model_used: str
     disclaimer: str
     data_sources: list[DataSource] = Field(default_factory=list)
+    # 進階模型新增欄位(向下相容,mvp 時為 None)
+    steps: list[StageResultModel] | None = None
+    envelope_polygon: dict[str, Any] | None = None
+    volume_placed_million_m3: float | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -137,6 +151,8 @@ class AffectedVillage(BaseModel):
     village: str | None = None
     households: int | None = None
     population: int | None = None
+    affected_area_ratio: float | None = None
+    population_estimate_ratio: float | None = None
 
 
 class VulnerableEstimate(BaseModel):

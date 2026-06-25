@@ -20,9 +20,13 @@
             >
               <span class="ic">{{ s.status === "done" ? "✓" : "⚙" }}</span>
               <span class="tname">{{ s.status === "done" ? toolLabel(s.name) : "呼叫 " + toolLabel(s.name) + "…" }}</span>
-              <span v-if="argHint(s)" class="ahint">{{ argHint(s) }}</span>
+              <!-- <span v-if="argHint(s)" class="ahint">{{ argHint(s) }}</span> -->
               <span v-if="s.result" class="chev">{{ s.open ? "▾ 收合資料" : "▸ 查看資料" }}</span>
             </button>
+            <div v-if="isInundationResult(s)" class="layer-note">
+              <div><span class="swatch flood"></span><strong>主要淹水範圍</strong>: 依潰壩水量與 DEM 逐格填水推估,代表較可能實際覆蓋的區域。</div>
+              <div><span class="swatch envelope"></span><strong>保守影響範圍</strong>: 沿下游流路擴張的警戒包絡線,用於研判可能影響,不代表全區都會淹水。</div>
+            </div>
             <pre v-if="s.open && s.result" class="stepdata">{{ formatResult(s) }}</pre>
           </div>
           <!-- 結論 = 獨立對話框 -->
@@ -63,9 +67,11 @@
 import MarkdownIt from "markdown-it";
 
 const props = defineProps<{ lakeId?: string }>();
-const emit = defineEmits<{ inundation: [polygon: any] }>();
+const emit = defineEmits<{
+  inundation: [polygon: any]
+  envelope: [polygon: any]
+}>();
 const { stream } = useChatStream();
-const api = useApi();
 
 // html:false → 模型輸出中的原始 HTML 會被轉義(防 XSS);表格為 markdown-it 預設啟用。
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true });
@@ -88,17 +94,28 @@ const TOOL_LABELS: Record<string, string> = {
 const toolLabel = (n: string) => TOOL_LABELS[n] || n;
 
 // 軌跡上顯示的關鍵參數提示(只挑有助理解的)
+const MODEL_VARIANT_LABELS: Record<string, string> = {
+  mvp: "mvp",
+  dem_screening: "dem_screening"
+};
+
 function argHint(s: any): string {
   if (!s?.args) return "";
   if (s.name === "estimate_inundation") {
     const sc = s.args.breach_scenario;
-    return sc === "partial" ? "部分潰壩" : sc === "full" ? "全潰壩" : "";
+    const scenario = sc === "partial" ? "部分潰壩" : sc === "full" ? "全潰壩" : "";
+    const variant = s.args.model_variant ? MODEL_VARIANT_LABELS[s.args.model_variant] || s.args.model_variant : "mvp";
+    return [scenario, variant].filter(Boolean).join(" · ");
   }
   return "";
 }
 
+function isInundationResult(s: any): boolean {
+  return s?.name === "estimate_inundation" && s?.status === "done" && !!s?.result?.inundation_polygon;
+}
+
 // 點開步驟時呈現的「原始取得資料」:剝除大型 GeoJSON,以可讀 JSON 顯示
-const STRIP = new Set(["inundation_polygon", "geometry", "polygon", "coordinates"]);
+const STRIP = new Set(["inundation_polygon", "envelope_polygon", "geometry", "polygon", "coordinates"]);
 function formatResult(s: any): string {
   const r = s?.result;
   if (r == null) return "";
@@ -149,9 +166,11 @@ async function send() {
       else if (ev.type === "tool_result") {
         const s = [...bot.steps].reverse().find((x) => x.name === ev.name && x.status === "calling");
         if (s) { s.status = "done"; s.result = ev.result; }
-        // 淹水結果套疊到中欄地圖
+        // 淹水結果套疊到中欄地圖；v2 若提供安全包絡線則補充同一條資料流。
         if (ev.name === "estimate_inundation" && ev.result?.inundation_polygon)
           emit("inundation", ev.result.inundation_polygon);
+        if (ev.name === "estimate_inundation" && ev.result?.envelope_polygon)
+          emit("envelope", ev.result.envelope_polygon);
       } else if (ev.type === "final") bot.content = ev.content;
       else if (ev.type === "error") bot.content = "⚠ " + ev.message;
       scrollDown();
@@ -189,6 +208,14 @@ async function send() {
 .step .ahint { color: var(--muted); font-size: 11px; }
 .step .chev { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .step.clickable:hover .chev { color: var(--accent); }
+.layer-note {
+  margin: 6px 0 3px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg-2); color: var(--muted); font-size: 11.5px; line-height: 1.55; white-space: normal;
+}
+.layer-note strong { color: var(--text); font-weight: 700; }
+.swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 2px; vertical-align: -1px; }
+.swatch.flood { background: rgba(90, 155, 189, .55); border: 1px solid #3d7d9a; }
+.swatch.envelope { background: rgba(90, 155, 189, .16); border: 1px dashed #3d7d9a; }
 .stepdata {
   margin: 3px 0 4px; background: var(--bg-2); border: 1px solid var(--border);
   border-radius: 7px; padding: 8px 10px; font-size: 11px; line-height: 1.5;

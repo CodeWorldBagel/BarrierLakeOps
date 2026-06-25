@@ -12,6 +12,7 @@
 用法:
   uv run python scripts/prep_geo.py            # 全部
   uv run python scripts/prep_geo.py --no-dem   # 跳過 DEM(免網路)
+  uv run python scripts/prep_geo.py --dem-only # 只重建 DEM(不需村里 raw 檔)
 """
 
 from __future__ import annotations
@@ -57,6 +58,22 @@ def _expanded(bbox: list[float]) -> tuple[float, float, float, float]:
 
 def _bbox_intersect(a, b) -> bool:
     return not (a[2] < b[0] or a[0] > b[2] or a[3] < b[1] or a[1] > b[3])
+
+
+def _require_village_inputs() -> None:
+    required = (SHP, POP_CSV)
+    missing = [p for p in required if not p.exists()]
+    if not missing:
+        return
+
+    rel_raw = RAW.relative_to(BACKEND.parent)
+    rel_missing = "\n  - ".join(str(p.relative_to(RAW)) for p in missing)
+    raise SystemExit(
+        "Missing raw village inputs in "
+        f"{rel_raw}:\n  - {rel_missing}\n"
+        "Place the NLSC village shapefile sidecars and village_population.csv "
+        "there, or run with --dem-only to refresh DEM files only."
+    )
 
 
 def process_villages() -> set[str]:
@@ -133,9 +150,16 @@ def process_population(kept_codes: set[str]) -> None:
     print(f"[population] matched {len(pop)} 村里人口")
 
 
-def fetch_dem(grid: int = 40) -> None:
+def fetch_dem(grid: int = 40, lake_id: str | None = None) -> None:
     DEM_DIR.mkdir(parents=True, exist_ok=True)
-    for lake_id, bbox in _lake_bboxes():
+    bboxes = _lake_bboxes()
+    if lake_id:
+        bboxes = [(lid, bbox) for lid, bbox in bboxes if lid == lake_id]
+        if not bboxes:
+            print(f"[dem] lake_id not found or no downstream_dem_bbox: {lake_id}")
+            return
+
+    for lake_id, bbox in bboxes:
         minlon, minlat, maxlon, maxlat = bbox
         lons = [minlon + (maxlon - minlon) * i / (grid - 1) for i in range(grid)]
         lats = [minlat + (maxlat - minlat) * j / (grid - 1) for j in range(grid)]
@@ -174,15 +198,32 @@ def fetch_dem(grid: int = 40) -> None:
             ),
             encoding="utf-8",
         )
-        print(f"[dem] {lake_id}: {grid}x{grid} grid saved")
+        print(
+            f"[dem] {lake_id}: {grid}x{grid} grid saved; "
+            f"bbox={bbox}; row0=north; source=SRTM 30m"
+        )
 
 
 def main() -> None:
     do_dem = "--no-dem" not in sys.argv
-    kept = process_villages()
-    process_population(kept)
+    dem_only = "--dem-only" in sys.argv
+    if dem_only and not do_dem:
+        raise SystemExit("--dem-only cannot be combined with --no-dem")
+
+    lake_id = None
+    if "--lake-id" in sys.argv:
+        idx = sys.argv.index("--lake-id")
+        try:
+            lake_id = sys.argv[idx + 1]
+        except IndexError:
+            raise SystemExit("--lake-id requires a value")
+
+    if not dem_only:
+        _require_village_inputs()
+        kept = process_villages()
+        process_population(kept)
     if do_dem:
-        fetch_dem()
+        fetch_dem(lake_id=lake_id)
     print("prep_geo done.")
 
 
