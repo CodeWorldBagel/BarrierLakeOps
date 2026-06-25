@@ -11,6 +11,7 @@
       <nav>
         <NuxtLink to="/">主控台</NuxtLink>
         <NuxtLink to="/connect">接上 MCP</NuxtLink>
+        <NuxtLink to="/data">資料同步</NuxtLink>
         <NuxtLink to="/about">關於</NuxtLink>
         <a :href="apiDocs" target="_blank" rel="noopener">API 文件 ↗</a>
       </nav>
