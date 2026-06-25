@@ -12,7 +12,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, Field
 
-from .config import BACKEND_DIR
+from .config import BACKEND_DIR, get_settings
 
 CATALOG_PATH = BACKEND_DIR / "lake_catalog.yaml"
 
@@ -88,8 +88,22 @@ def _merge_defaults(raw: dict[str, Any]) -> dict[str, Any]:
     return {"lakes": lakes}
 
 
-@lru_cache
-def load_catalog(path: str | None = None) -> Catalog:
+def _read_catalog(path: str | None = None) -> Catalog:
     p = Path(path) if path else CATALOG_PATH
     raw = yaml.safe_load(p.read_text(encoding="utf-8"))
     return Catalog.model_validate(_merge_defaults(raw))
+
+
+@lru_cache
+def _load_catalog_cached(path: str | None = None) -> Catalog:
+    return _read_catalog(path)
+
+
+def load_catalog(path: str | None = None) -> Catalog:
+    if get_settings().environment in {"development", "test", "testing"}:
+        return _read_catalog(path)
+    return _load_catalog_cached(path)
+
+
+def clear_catalog_cache() -> None:
+    _load_catalog_cached.cache_clear()

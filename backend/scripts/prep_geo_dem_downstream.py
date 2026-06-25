@@ -1,0 +1,395 @@
+"""前處理:把大型 geo 原始資料轉成執行期可用的小檔(避免執行期依賴 GDAL / 大檔)。
+
+產出(committed,供 Zeabur 原生部署直接使用):
+  data/villages/villages.geojson   ← 各湖下游範圍的村里界(WGS84 lon/lat)
+  data/villages/population.json     ← 對應村里的戶數/人口/老幼(內政部)
+  data/dem/<lake_id>.npy / .json    ← 各湖下游 SRTM 高程格點(NASA 公有領域)
+
+原始檔(data/raw/,gitignore):
+  VILLAGE_NLSC_*.shp/.dbf  ← 內政部村里界(TWD97 經緯度)
+  village_population.csv    ← 內政部 村里戶數、單一年齡人口
+
+用法:
+  uv run python scripts/prep_geo_dem_downstream.py            # 全部
+  uv run python scripts/prep_geo_dem_downstream.py --no-dem   # 跳過 DEM(免網路)
+  uv run python scripts/prep_geo_dem_downstream.py --dem-only # 只重建 DEM(不需村里 raw 檔)
+
+與 prep_geo.py 相同,但 downstream_dem_bbox 缺漏時會先用 DEM 自動追下游路徑,
+再以追到的路徑外擴產生下游 bbox。
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import math
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+import httpx
+import shapefile  # pyshp
+
+BACKEND = Path(__file__).resolve().parents[1]
+RAW = BACKEND / "data" / "raw"
+VILL_DIR = BACKEND / "data" / "villages"
+DEM_DIR = BACKEND / "data" / "dem"
+SHP = RAW / "VILLAGE_NLSC_1150511.shp"
+POP_CSV = RAW / "village_population.csv"
+
+MARGIN_DEG = 0.06  # 下游 bbox 外擴(約 6.5km),確保涵蓋可能淹水範圍
+DEM_DERIVE_GRID = 40
+DEM_DERIVE_RADIUS_DEG = 0.18  # 約 20km 探索框,供無 downstream_dem_bbox 湖泊追下游
+DEM_DERIVE_REACH_KM = 20.0
+DEM_DERIVE_PADDING_DEG = 0.04
+DEM_DERIVE_RISE_TOLERANCE_M = 8.0
+
+
+def _lake_bboxes() -> list[tuple[str, list[float]]]:
+    sys.path.insert(0, str(BACKEND / "src"))
+    from barrier_lake_ops.catalog import load_catalog
+
+    out = []
+    for lk in load_catalog().lakes:
+        if lk.downstream_dem_bbox:
+            out.append((lk.id, lk.downstream_dem_bbox))
+            continue
+        derived = _derive_downstream_bbox_from_dem(lk)
+        if derived:
+            out.append((lk.id, derived))
+    return out
+
+
+def _derive_downstream_bbox_from_dem(lake: Any) -> list[float] | None:
+    """Derive a downstream bbox by tracing local DEM descent from the lake centroid."""
+    try:
+        clon, clat = lake.location.centroid
+    except (AttributeError, TypeError, ValueError):
+        print(f"[dem-bbox] {getattr(lake, 'id', '<unknown>')}: missing centroid; skipped")
+        return None
+
+    search_bbox = [
+        float(clon) - DEM_DERIVE_RADIUS_DEG,
+        float(clat) - DEM_DERIVE_RADIUS_DEG,
+        float(clon) + DEM_DERIVE_RADIUS_DEG,
+        float(clat) + DEM_DERIVE_RADIUS_DEG,
+    ]
+    elev = _fetch_elevation_grid(search_bbox, DEM_DERIVE_GRID)
+    path = _trace_dem_downstream_cells(elev, search_bbox, (float(clon), float(clat)))
+    if len(path) < 2:
+        print(f"[dem-bbox] {lake.id}: DEM downstream path too short; skipped")
+        return None
+
+    minlon, minlat, maxlon, maxlat = search_bbox
+    grid_h, grid_w = elev.shape
+    dlon = (maxlon - minlon) / (grid_w - 1)
+    dlat = (maxlat - minlat) / (grid_h - 1)
+    lons = [minlon + c * dlon for _, c in path]
+    lats = [maxlat - r * dlat for r, _ in path]
+    derived = [
+        max(minlon, min(lons) - DEM_DERIVE_PADDING_DEG),
+        max(minlat, min(lats) - DEM_DERIVE_PADDING_DEG),
+        min(maxlon, max(lons) + DEM_DERIVE_PADDING_DEG),
+        min(maxlat, max(lats) + DEM_DERIVE_PADDING_DEG),
+    ]
+    print(f"[dem-bbox] {lake.id}: derived downstream_dem_bbox={derived}")
+    return derived
+
+
+def _fetch_elevation_grid(bbox: list[float], grid: int) -> "np.ndarray":
+    import numpy as np
+
+    minlon, minlat, maxlon, maxlat = bbox
+    lons = [minlon + (maxlon - minlon) * i / (grid - 1) for i in range(grid)]
+    lats = [minlat + (maxlat - minlat) * j / (grid - 1) for j in range(grid)]
+    lats = list(reversed(lats))
+    elev = [[None] * grid for _ in range(grid)]
+    points = [(j, i, lats[j], lons[i]) for j in range(grid) for i in range(grid)]
+    with httpx.Client(timeout=30) as client:
+        for k in range(0, len(points), 100):
+            batch = points[k : k + 100]
+            locs = "|".join(f"{p[2]:.6f},{p[3]:.6f}" for p in batch)
+            resp = client.get(
+                "https://api.opentopodata.org/v1/srtm30m",
+                params={"locations": locs},
+            )
+            resp.raise_for_status()
+            for p, res in zip(batch, resp.json()["results"]):
+                elev[p[0]][p[1]] = res.get("elevation")
+            time.sleep(1.1)
+    return np.array(
+        [[(v if v is not None else np.nan) for v in row] for row in elev],
+        dtype="float32",
+    )
+
+
+def _trace_dem_downstream_cells(
+    elev: "np.ndarray",
+    bbox: list[float],
+    centroid_lonlat: tuple[float, float],
+) -> list[tuple[int, int]]:
+    import numpy as np
+
+    h, w = elev.shape
+    minlon, minlat, maxlon, maxlat = bbox
+    midlat = (minlat + maxlat) / 2
+    dlon = (maxlon - minlon) / (w - 1)
+    dlat = (maxlat - minlat) / (h - 1)
+    dx_m = abs(dlon * 111_320 * math.cos(math.radians(midlat)))
+    dy_m = abs(dlat * 110_540)
+    reach_m = DEM_DERIVE_REACH_KM * 1000
+
+    clon, clat = centroid_lonlat
+    start_r = int(round((maxlat - clat) / dlat))
+    start_c = int(round((clon - minlon) / dlon))
+    start_r = max(0, min(h - 1, start_r))
+    start_c = max(0, min(w - 1, start_c))
+    finite = np.isfinite(elev)
+    seed = _nearest_finite_grid_cell(elev, finite, start_r, start_c)
+    if seed is None:
+        return []
+
+    path: list[tuple[int, int]] = []
+    visited: set[tuple[int, int]] = set()
+    current = seed
+    cumulative_m = 0.0
+    for _ in range(h * w):
+        r, c = current
+        if current in visited or cumulative_m > reach_m:
+            break
+        visited.add(current)
+        path.append(current)
+        current_elev = float(elev[r, c])
+        best: tuple[float, float, float, int, int] | None = None
+        for radius in range(1, 6):
+            candidates: list[tuple[float, float, float, int, int]] = []
+            for dr in range(-radius, radius + 1):
+                for dc in range(-radius, radius + 1):
+                    if dr == 0 and dc == 0 or max(abs(dr), abs(dc)) != radius:
+                        continue
+                    nr, nc = r + dr, c + dc
+                    if not (0 <= nr < h and 0 <= nc < w):
+                        continue
+                    if (nr, nc) in visited or not finite[nr, nc]:
+                        continue
+                    step_m = math.hypot(abs(dr) * dy_m, abs(dc) * dx_m)
+                    if step_m <= 0 or cumulative_m + step_m > reach_m:
+                        continue
+                    dz = float(elev[nr, nc]) - current_elev
+                    if dz > DEM_DERIVE_RISE_TOLERANCE_M:
+                        continue
+                    slope = dz / step_m
+                    candidates.append((slope + max(dz, 0.0) * 0.02, float(elev[nr, nc]), step_m, nr, nc))
+            if candidates:
+                best = min(candidates, key=lambda item: (item[0], item[1], item[2]))
+                if best[1] <= current_elev or radius > 1:
+                    break
+        if best is None:
+            break
+        _, _, step_m, nr, nc = best
+        cumulative_m += step_m
+        current = (nr, nc)
+    return path
+
+
+def _nearest_finite_grid_cell(
+    elev: "np.ndarray", finite: "np.ndarray", row: int, col: int, radius: int = 5
+) -> tuple[int, int] | None:
+    h, w = elev.shape
+    best: tuple[float, int, int] | None = None
+    for dr in range(-radius, radius + 1):
+        for dc in range(-radius, radius + 1):
+            rr, cc = row + dr, col + dc
+            if not (0 <= rr < h and 0 <= cc < w) or not finite[rr, cc]:
+                continue
+            cand = (math.hypot(dr, dc), rr, cc)
+            if best is None or cand < best:
+                best = cand
+    if best is None:
+        return None
+    return best[1], best[2]
+
+
+def _expanded(bbox: list[float]) -> tuple[float, float, float, float]:
+    return (
+        bbox[0] - MARGIN_DEG,
+        bbox[1] - MARGIN_DEG,
+        bbox[2] + MARGIN_DEG,
+        bbox[3] + MARGIN_DEG,
+    )
+
+
+def _bbox_intersect(a, b) -> bool:
+    return not (a[2] < b[0] or a[0] > b[2] or a[3] < b[1] or a[1] > b[3])
+
+
+def _require_village_inputs() -> None:
+    required = (SHP, POP_CSV)
+    missing = [p for p in required if not p.exists()]
+    if not missing:
+        return
+
+    rel_raw = RAW.relative_to(BACKEND.parent)
+    rel_missing = "\n  - ".join(str(p.relative_to(RAW)) for p in missing)
+    raise SystemExit(
+        "Missing raw village inputs in "
+        f"{rel_raw}:\n  - {rel_missing}\n"
+        "Place the NLSC village shapefile sidecars and village_population.csv "
+        "there, or run with --dem-only to refresh DEM files only."
+    )
+
+
+def process_villages() -> set[str]:
+    bboxes = [_expanded(bb) for _, bb in _lake_bboxes()]
+    r = shapefile.Reader(str(SHP), encoding="utf-8")
+    fields = [f[0] for f in r.fields[1:]]
+    features = []
+    kept_codes: set[str] = set()
+    for sr in r.iterShapeRecords():
+        sbb = sr.shape.bbox  # (minx,miny,maxx,maxy)
+        if not any(_bbox_intersect(sbb, b) for b in bboxes):
+            continue
+        rec = dict(zip(fields, list(sr.record)))
+        code = str(rec.get("VILLCODE", "")).strip()
+        kept_codes.add(code)
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": sr.shape.__geo_interface__,
+                "properties": {
+                    "villcode": code,
+                    "county": rec.get("COUNTYNAME"),
+                    "town": rec.get("TOWNNAME"),
+                    "village": rec.get("VILLNAME"),
+                },
+            }
+        )
+    VILL_DIR.mkdir(parents=True, exist_ok=True)
+    (VILL_DIR / "villages.geojson").write_text(
+        json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    print(f"[villages] kept {len(features)} 村里(下游範圍內)")
+    return kept_codes
+
+
+def process_population(kept_codes: set[str]) -> None:
+    pop: dict[str, dict] = {}
+    with open(POP_CSV, encoding="utf-8-sig") as f:
+        rd = csv.DictReader(f)
+        for row in rd:
+            code = (row.get("區域別代碼") or "").strip()
+            if code not in kept_codes:
+                continue
+            children = elderly = 0
+            for col, val in row.items():
+                if not val or "歲" not in col:
+                    continue
+                try:
+                    n = int(val)
+                except ValueError:
+                    continue
+                age_txt = col.split("歲")[0]
+                if "100" in col and "以上" in col:
+                    elderly += n
+                    continue
+                try:
+                    age = int(age_txt)
+                except ValueError:
+                    continue
+                if age <= 5:
+                    children += n
+                elif age >= 65:
+                    elderly += n
+            pop[code] = {
+                "households": int(row.get("戶數") or 0),
+                "population": int(row.get("人口數") or 0),
+                "elderly_65plus": elderly,
+                "children_under6": children,
+            }
+    (VILL_DIR / "population.json").write_text(
+        json.dumps(pop, ensure_ascii=False), encoding="utf-8"
+    )
+    print(f"[population] matched {len(pop)} 村里人口")
+
+
+def fetch_dem(grid: int = 40, lake_id: str | None = None) -> None:
+    DEM_DIR.mkdir(parents=True, exist_ok=True)
+    bboxes = _lake_bboxes()
+    if lake_id:
+        bboxes = [(lid, bbox) for lid, bbox in bboxes if lid == lake_id]
+        if not bboxes:
+            print(f"[dem] lake_id not found or no downstream_dem_bbox: {lake_id}")
+            return
+
+    for lake_id, bbox in bboxes:
+        minlon, minlat, maxlon, maxlat = bbox
+        lons = [minlon + (maxlon - minlon) * i / (grid - 1) for i in range(grid)]
+        lats = [minlat + (maxlat - minlat) * j / (grid - 1) for j in range(grid)]
+        # 由北到南(row 0 = maxlat),配合影像座標
+        lats = list(reversed(lats))
+        elev = [[None] * grid for _ in range(grid)]
+        points = [(j, i, lats[j], lons[i]) for j in range(grid) for i in range(grid)]
+        with httpx.Client(timeout=30) as client:
+            for k in range(0, len(points), 100):
+                batch = points[k : k + 100]
+                locs = "|".join(f"{p[2]:.6f},{p[3]:.6f}" for p in batch)
+                resp = client.get(
+                    "https://api.opentopodata.org/v1/srtm30m",
+                    params={"locations": locs},
+                )
+                resp.raise_for_status()
+                results = resp.json()["results"]
+                for p, res in zip(batch, results):
+                    elev[p[0]][p[1]] = res.get("elevation")
+                time.sleep(1.1)  # opentopodata 限速 1 req/sec
+        import numpy as np
+
+        arr = np.array(
+            [[(v if v is not None else np.nan) for v in row] for row in elev],
+            dtype="float32",
+        )
+        np.save(DEM_DIR / f"{lake_id}.npy", arr)
+        (DEM_DIR / f"{lake_id}.json").write_text(
+            json.dumps(
+                {
+                    "bbox": bbox,  # [minlon,minlat,maxlon,maxlat]
+                    "shape": [grid, grid],
+                    "row0": "north",
+                    "source": "SRTM 30m (NASA, public domain) via opentopodata",
+                }
+            ),
+            encoding="utf-8",
+        )
+        print(
+            f"[dem] {lake_id}: {grid}x{grid} grid saved; "
+            f"bbox={bbox}; row0=north; source=SRTM 30m"
+        )
+
+
+def main() -> None:
+    do_dem = "--no-dem" not in sys.argv
+    dem_only = "--dem-only" in sys.argv
+    if dem_only and not do_dem:
+        raise SystemExit("--dem-only cannot be combined with --no-dem")
+
+    lake_id = None
+    if "--lake-id" in sys.argv:
+        idx = sys.argv.index("--lake-id")
+        try:
+            lake_id = sys.argv[idx + 1]
+        except IndexError:
+            raise SystemExit("--lake-id requires a value")
+
+    if not dem_only:
+        _require_village_inputs()
+        kept = process_villages()
+        process_population(kept)
+    if do_dem:
+        fetch_dem(lake_id=lake_id)
+    print("prep_geo done.")
+
+
+if __name__ == "__main__":
+    main()
