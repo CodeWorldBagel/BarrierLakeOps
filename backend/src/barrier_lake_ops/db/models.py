@@ -63,6 +63,26 @@ class LakeState(Base):
     )
 
 
+class LakeCatalog(Base):
+    """堰塞湖清單基本資料（由 YAML 上傳寫入，DB 為單一事實來源）。"""
+
+    __tablename__ = "lake_catalog"
+
+    lake_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name_zh: Mapped[str] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(16), default="monitoring")  # active | monitoring | archived
+    formed_at: Mapped[str | None] = mapped_column(String(32))  # RFC3339 date string
+    lon: Mapped[float | None] = mapped_column(Float)
+    lat: Mapped[float | None] = mapped_column(Float)
+    cwa_stations: Mapped[list | None] = mapped_column(JSONB)   # list[str]
+    dem_bbox: Mapped[list | None] = mapped_column(JSONB)       # [min_lon,min_lat,max_lon,max_lat]
+    moa_dataset_id: Mapped[str | None] = mapped_column(String(32))
+    note: Mapped[str | None] = mapped_column(Text)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class LakeThreshold(Base):
     """警戒門檻 — 應變中心可即時編輯,寫 DB + 記錄時間。"""
 
