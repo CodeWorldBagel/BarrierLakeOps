@@ -47,11 +47,18 @@ class Settings(BaseSettings):
     ncdr_token: str = ""
 
     # 資料庫
-    database_url: str = "postgresql://barrierlake:barrierlake@localhost:5432/barrierlake"
+    database_url: str = "postgresql://barrierlake:barrierlake@db:5432/barrierlake"
 
     # 本地資料 / 快取
     cache_dir: Path = BACKEND_DIR / ".cache"
     data_dir: Path = BACKEND_DIR / "data"
+
+    # MinIO（正式環境設定；留空則 fallback 到本地 data_dir/dem/）
+    minio_endpoint: str = ""
+    minio_username: str = "minio"       # = MINIO_USERNAME (Zeabur 暴露名稱)
+    minio_password: str = ""            # = MINIO_PASSWORD
+    minio_default_bucket: str = "barrier-lake-dem"  # = MINIO_DEFAULT_BUCKET
+    minio_secure: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -10,10 +10,10 @@ from .common import (
     DEFAULT_DIRECTIONAL_RELATIVE_RADIUS,
     DEFAULT_FLOOD_H_MAX_M,
     _flood_result_from_mask,
-    _load,
+    _load_window_min,
     _nearest_finite_cell,
     _reachable_floodable_from_seed_8,
-    _window_min,
+    load_dem_context,
 )
 from .screening_corridor import SCREENING_EXPANDED_WIDTH_CANDIDATES_M
 from .screening_corridor import SCREENING_MIN_FRAGMENT_CELLS
@@ -41,17 +41,17 @@ def estimate_flood_dem_screening(
     path using local relative height, then solves a volume-conserving flood
     height inside the reachable corridor.
     """
-    arr, meta = _load(lake_id)
-    h, w = arr.shape
-    minlon, minlat, maxlon, maxlat = meta["bbox"]
-    elev = np.where(np.isnan(arr), np.inf, arr)
-
-    midlat = (minlat + maxlat) / 2
-    dlon = (maxlon - minlon) / (w - 1)
-    dlat = (maxlat - minlat) / (h - 1)
-    dx_m = dlon * 111_320 * math.cos(math.radians(midlat))
-    dy_m = dlat * 110_540
-    cell_area = abs(dx_m * dy_m)
+    dem = load_dem_context(lake_id)
+    arr = dem.arr
+    h, w = dem.shape
+    minlon, minlat, maxlon, maxlat = dem.bbox
+    elev = dem.elev
+    midlat = dem.midlat
+    dlon = dem.dlon
+    dlat = dem.dlat
+    dx_m = dem.dx_m
+    dy_m = dem.dy_m
+    cell_area = dem.cell_area_m2
 
     clon, clat = centroid_lonlat
     rows = np.arange(h)[:, None]
@@ -122,7 +122,7 @@ def estimate_flood_dem_screening(
 
     nearest_path_dist, along_m = _path_distance_fields(elev.shape, path_points, dx_m, dy_m)
 
-    local_min = _window_min(elev, radius=DEFAULT_DIRECTIONAL_RELATIVE_RADIUS)
+    local_min = _load_window_min(lake_id, DEFAULT_DIRECTIONAL_RELATIVE_RADIUS)
     relative = elev - local_min
     relative = np.where(path, 0.0, relative)
     vol_million = max(volume_m3 / 1_000_000, 0.0)

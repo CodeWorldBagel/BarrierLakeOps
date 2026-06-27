@@ -64,6 +64,7 @@ class Lake(BaseModel):
     moa_dataset_id: str | None = None
     reference_state: ReferenceState | None = None
     note: str | None = None
+    geo_key: str | None = None  # DEM 檔案對應 key(通常為原始英文 id)
 
 
 class Catalog(BaseModel):
@@ -78,12 +79,22 @@ class Catalog(BaseModel):
         return [lk for lk in self.lakes if lk.status == status_filter]
 
 
+def _make_lake_id(name_zh: str | None, formed_at: str | None) -> str:
+    import re
+    year = (formed_at or "")[:4] or "unknown"
+    name = re.sub(r"堰塞湖", "", name_zh or "")
+    name = re.sub(r"[()（）]", "", name).strip()
+    return f"{name}-{year}"
+
+
 def _merge_defaults(raw: dict[str, Any]) -> dict[str, Any]:
     defaults = raw.get("defaults", {}) or {}
     default_threshold = defaults.get("threshold", {}) or {}
     lakes = []
     for lk in raw.get("lakes", []):
         th = {**default_threshold, **(lk.get("threshold") or {})}
+        if not lk.get("id"):
+            lk = {**lk, "id": _make_lake_id(lk.get("name_zh"), lk.get("formed_at"))}
         lakes.append({**lk, "threshold": th})
     return {"lakes": lakes}
 
@@ -103,6 +114,69 @@ def load_catalog(path: str | None = None) -> Catalog:
     if get_settings().environment in {"development", "test", "testing"}:
         return _read_catalog(path)
     return _load_catalog_cached(path)
+
+
+async def load_catalog_async(path: str | None = None) -> Catalog:
+    """DB-first: 從 lake_catalog / lake_thresholds / lake_states 重建 Catalog。
+    DB 無資料或連線失敗時 fallback 本地 YAML。
+    """
+    try:
+        from .db.engine import SessionLocal
+        from .db.models import LakeCatalog, LakeState, LakeThreshold
+        from sqlalchemy import select
+
+        async with SessionLocal() as s:
+            db_rows = (await s.execute(select(LakeCatalog))).scalars().all()
+            if not db_rows:
+                return load_catalog(path)
+            thr_rows = {
+                r.lake_id: r
+                for r in (await s.execute(select(LakeThreshold))).scalars().all()
+            }
+            st_rows = {
+                r.lake_id: r
+                for r in (await s.execute(select(LakeState))).scalars().all()
+            }
+
+        lakes: list[Lake] = []
+        for row in db_rows:
+            th = thr_rows.get(row.lake_id)
+            threshold = Threshold(
+                overflow_elevation_m=th.overflow_elevation_m if th else None,
+                red_alert_headroom_m=th.red_alert_headroom_m if th else 20.0,
+                orange_alert_headroom_m=th.orange_alert_headroom_m if th else 40.0,
+                yellow_alert_headroom_m=th.yellow_alert_headroom_m if th else 70.0,
+            )
+            st = st_rows.get(row.lake_id)
+            reference_state = (
+                ReferenceState(
+                    water_level_m=st.water_level_m,
+                    storage_million_m3=st.storage_million_m3,
+                    observed_at=st.observed_at,
+                    note=st.note,
+                ) if st else None
+            )
+            lakes.append(
+                Lake(
+                    id=row.lake_id,
+                    name_zh=row.name_zh,
+                    status=row.status,
+                    formed_at=row.formed_at,
+                    location=Location(centroid=[row.lon or 0.0, row.lat or 0.0]),
+                    threshold=threshold,
+                    upstream_weather=UpstreamWeather(
+                        cwa_stations=row.cwa_stations or []
+                    ),
+                    downstream_dem_bbox=row.dem_bbox,
+                    moa_dataset_id=row.moa_dataset_id,
+                    reference_state=reference_state,
+                    note=row.note,
+                    geo_key=row.geo_key,
+                )
+            )
+        return Catalog(lakes=lakes)
+    except Exception:  # noqa: BLE001
+        return load_catalog(path)
 
 
 def clear_catalog_cache() -> None:

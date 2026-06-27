@@ -46,23 +46,6 @@ class Village(Base):
     elderly_65plus: Mapped[int | None] = mapped_column(Integer)
     children_under6: Mapped[int | None] = mapped_column(Integer)
 
-
-class LakeState(Base):
-    """堰塞湖水位(情境快照)— 應變中心可即時編輯,寫 DB + 記錄時間。"""
-
-    __tablename__ = "lake_states"
-
-    lake_id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    water_level_m: Mapped[float | None] = mapped_column(Float)
-    storage_million_m3: Mapped[float | None] = mapped_column(Float)
-    observed_at: Mapped[str | None] = mapped_column(String(40))
-    note: Mapped[str | None] = mapped_column(Text)
-    updated_by: Mapped[str | None] = mapped_column(String(64))
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
 class LakeCatalog(Base):
     """堰塞湖清單基本資料（由 YAML 上傳寫入，DB 為單一事實來源）。"""
 
@@ -78,10 +61,26 @@ class LakeCatalog(Base):
     dem_bbox: Mapped[list | None] = mapped_column(JSONB)       # [min_lon,min_lat,max_lon,max_lat]
     moa_dataset_id: Mapped[str | None] = mapped_column(String(32))
     note: Mapped[str | None] = mapped_column(Text)
+    geo_key: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+
+class LakeState(Base):
+    """堰塞湖水位(情境快照)— 應變中心可即時編輯,寫 DB + 記錄時間。"""
+
+    __tablename__ = "lake_states"
+
+    lake_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    water_level_m: Mapped[float | None] = mapped_column(Float)
+    storage_million_m3: Mapped[float | None] = mapped_column(Float)
+    observed_at: Mapped[str | None] = mapped_column(String(40))
+    note: Mapped[str | None] = mapped_column(Text)
+    updated_by: Mapped[str | None] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 class LakeThreshold(Base):
     """警戒門檻 — 應變中心可即時編輯,寫 DB + 記錄時間。"""

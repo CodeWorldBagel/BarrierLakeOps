@@ -28,6 +28,7 @@ cd frontend && npm install && npm run dev   # http://localhost:3000
   - backend  `6a1d0023dde8027c6783f508` → https://barrierlakeops-api.codeworldbagel.com(自訂網域,有效 HTTPS)
   - frontend `6a1d005c2cc61de70f4db855` → https://barrierlakeops.codeworldbagel.com(自訂網域,有效 HTTPS)
   - postgresql `6a1d00e72cc61de70f4db865`(template B20CX0)
+  - minio `6a3e834ad525b066f24698cb`(template TLJ3RL)
   - (備:`*.zeabur.app` 生成網域憑證簽發較慢;自訂網域立即有效)
 - 環境變數關聯(改 domain 時兩者需同步更新並 redeploy,**程式碼不需改**):
   - frontend `NUXT_PUBLIC_API_BASE` = backend 公開網域

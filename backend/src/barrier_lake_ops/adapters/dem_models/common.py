@@ -7,6 +7,7 @@ Model entry points live in their own modules under dem_models/.
 
 from __future__ import annotations
 
+import io
 import json
 import math
 from dataclasses import dataclass
@@ -84,20 +85,51 @@ def _dem_dir() -> Path:
     return get_settings().data_dir / "dem"
 
 
+@lru_cache
+def _minio_client():
+    from minio import Minio  # lazy import — only needed in production
+    s = get_settings()
+    return Minio(s.minio_endpoint, access_key=s.minio_username, secret_key=s.minio_password, secure=s.minio_secure)
+
+
+def _load_from_minio(lake_id: str):
+    s = get_settings()
+    client = _minio_client()
+    bucket = s.minio_default_bucket
+
+    npy_data = client.get_object(bucket, f"{lake_id}.npy").read()
+    arr = np.load(io.BytesIO(npy_data))
+
+    json_data = client.get_object(bucket, f"{lake_id}.json").read()
+    meta = json.loads(json_data.decode("utf-8"))
+    return arr, meta
+
+
+@lru_cache(maxsize=256)
+def _stat_dem_minio(lake_id: str, bucket: str) -> bool:
+    """Cache successful MinIO stat lookups; exceptions propagate (not cached)."""
+    _minio_client().stat_object(bucket, f"{lake_id}.npy")
+    return True
+
+
 def has_dem(lake_id: str) -> bool:
+    s = get_settings()
+    if s.minio_endpoint:
+        try:
+            return _stat_dem_minio(lake_id, s.minio_default_bucket)
+        except Exception:
+            return False
     dem_dir = _dem_dir()
     return (dem_dir / f"{lake_id}.npy").exists() and (dem_dir / f"{lake_id}.json").exists()
 
 
 @lru_cache(maxsize=32)
 def load_dem(lake_id: str):
+    if get_settings().minio_endpoint:
+        return _load_from_minio(lake_id)
     arr = np.load(_dem_dir() / f"{lake_id}.npy")
     meta = json.loads((_dem_dir() / f"{lake_id}.json").read_text(encoding="utf-8"))
     return arr, meta
-
-
-def _load(lake_id: str):
-    return load_dem(lake_id)
 
 
 @lru_cache(maxsize=32)
@@ -125,12 +157,20 @@ def load_dem_context(lake_id: str) -> DemGridContext:
     )
 
 
+@lru_cache(maxsize=32)
+def _load_window_min(lake_id: str, radius: int = DEFAULT_WINDOW_MIN_RADIUS) -> np.ndarray:
+    """Cached window-min per lake — expensive O(radius²×H×W) pure-Python loop."""
+    arr, _ = load_dem(lake_id)
+    elev = np.where(np.isnan(arr), np.inf, arr)
+    return _window_min(elev, radius=radius)
+
+
 def clear_dem_cache() -> None:
     load_dem.cache_clear()
     load_dem_context.cache_clear()
-    cache_clear = getattr(_dem_dir, "cache_clear", None)
-    if cache_clear is not None:
-        cache_clear()
+    _load_window_min.cache_clear()
+    _stat_dem_minio.cache_clear()
+    _dem_dir.cache_clear()
 
 
 def _window_min(arr: np.ndarray, radius: int = DEFAULT_WINDOW_MIN_RADIUS) -> np.ndarray:

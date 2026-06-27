@@ -14,6 +14,7 @@ from ..adapters.moa import fetch_moa_lakes
 from ..catalog import ReferenceState, load_catalog
 from ..db.engine import SessionLocal
 from ..db.models import LakeState, LakeThreshold
+from ..db.models import LakeCatalog
 from ..schemas import AlertLevel, DataSource, Freshness, LakeStatusOutput
 from . import alert_from_headroom, compute_headroom
 
@@ -24,6 +25,58 @@ CATALOG_SOURCE = DataSource(
     url="",
 )
 
+
+
+async def _lake_from_db(session, lake_id: str):
+    """從 DB 組裝 catalog.Lake 相容物件（含 threshold/state override）。
+
+    回傳 (lake, state_row, threshold_row)；找不到 lake_id 回傳 (None, None, None)。
+    """
+    from ..catalog import Lake, Location, Threshold, UpstreamWeather, ReferenceState
+    from sqlalchemy import select
+
+    row = (await session.execute(
+        select(LakeCatalog).where(LakeCatalog.lake_id == lake_id)
+    )).scalar_one_or_none()
+    if row is None:
+        return None, None, None
+
+    st = (await session.execute(
+        select(LakeState).where(LakeState.lake_id == lake_id)
+    )).scalar_one_or_none()
+    th = (await session.execute(
+        select(LakeThreshold).where(LakeThreshold.lake_id == lake_id)
+    )).scalar_one_or_none()
+
+    threshold = Threshold(
+        overflow_elevation_m=th.overflow_elevation_m if th else None,
+        red_alert_headroom_m=th.red_alert_headroom_m if th else 20.0,
+        orange_alert_headroom_m=th.orange_alert_headroom_m if th else 40.0,
+        yellow_alert_headroom_m=th.yellow_alert_headroom_m if th else 70.0,
+    )
+    ref_state = None
+    if st and (st.water_level_m is not None or st.storage_million_m3 is not None):
+        ref_state = ReferenceState(
+            water_level_m=st.water_level_m,
+            storage_million_m3=st.storage_million_m3,
+            observed_at=st.observed_at,
+            note=st.note,
+        )
+
+    lake = Lake(
+        id=row.lake_id,
+        name_zh=row.name_zh,
+        status=row.status,
+        formed_at=row.formed_at,
+        location=Location(centroid=[row.lon or 0.0, row.lat or 0.0]),
+        threshold=threshold,
+        upstream_weather=UpstreamWeather(cwa_stations=row.cwa_stations or []),
+        downstream_dem_bbox=row.dem_bbox,
+        moa_dataset_id=row.moa_dataset_id,
+        reference_state=ref_state,
+        note=row.note,
+    )
+    return lake, st, th
 
 async def _db_overrides(lake_id: str):
     """DB 的水位 / 門檻覆寫(人工維護編輯)。DB 不可用或無資料 → (None, None),fallback catalog。"""
@@ -63,6 +116,17 @@ def _apply_overrides(lake, st, th):
 
 
 async def get_lake_status(lake_id: str) -> LakeStatusOutput:
+    # Try DB first
+    try:
+        async with SessionLocal() as s:
+            lake, st, th = await _lake_from_db(s, lake_id)
+    except Exception:  # noqa: BLE001
+        lake = None
+
+    if lake is not None:
+        return _status_from_catalog(lake)
+
+    # fallback: YAML catalog（開發期 DB 未上傳時仍可運作）
     cat = load_catalog()
     lake = cat.get(lake_id)
 
