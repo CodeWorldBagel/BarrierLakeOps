@@ -14,7 +14,7 @@ from ..adapters.cwa import (
     fetch_town_pop_max,
     nearest_stations,
 )
-from ..catalog import load_catalog
+from ..catalog import load_catalog_async
 from ..schemas import AlertLevel, Freshness, RainStation, UpstreamWeatherOutput
 
 
@@ -36,7 +36,7 @@ def _alert_from_rain(max_24h: float | None, max_1h: float | None) -> AlertLevel:
 async def get_upstream_weather(
     lake_id: str, hours_back: int = 24, hours_forward: int = 24
 ) -> UpstreamWeatherOutput:
-    cat = load_catalog()
+    cat = await load_catalog_async()
     lake = cat.get(lake_id)
     if lake is None:
         return UpstreamWeatherOutput(

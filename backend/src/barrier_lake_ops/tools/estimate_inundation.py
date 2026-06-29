@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..adapters.dem import SOURCE as DEM_SOURCE
 from ..adapters.dem import estimate_flood, has_dem
-from ..catalog import load_catalog
+from ..catalog import load_catalog_async
 from ..schemas import InundationOutput
 from .explain_flood_cell import explain_flood_cell
 from .inundation_runtime import clear_inundation_runtime_cache
@@ -108,7 +108,7 @@ async def estimate_inundation(
     breach_volume_million_m3: float | None = None,
     model_variant: str = "mvp",
 ) -> InundationOutput:
-    cat = load_catalog()
+    cat = await load_catalog_async()
     lake = cat.get(lake_id)
     if lake is None or not has_dem(lake_id):
         return _empty_output(lake_id, model_variant)

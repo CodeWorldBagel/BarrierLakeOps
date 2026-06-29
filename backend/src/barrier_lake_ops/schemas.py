@@ -44,7 +44,7 @@ class Freshness(str, Enum):
 class LakeSummary(BaseModel):
     id: str
     name: str
-    status: Literal["active", "monitoring", "archived"] = "monitoring"
+    status: Literal["monitoring", "archived"] = "monitoring"
     alert_level: AlertLevel = AlertLevel.unknown
     formed_at: str | None = None
     lat: float | None = None
@@ -53,7 +53,7 @@ class LakeSummary(BaseModel):
 
 
 class ListLakesInput(BaseModel):
-    status_filter: Literal["active", "monitoring", "all"] = "all"
+    status_filter: Literal["monitoring", "archived", "all"] = "all"
 
 
 class ListLakesOutput(BaseModel):

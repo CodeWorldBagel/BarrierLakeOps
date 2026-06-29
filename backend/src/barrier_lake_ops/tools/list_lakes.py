@@ -5,19 +5,19 @@ from __future__ import annotations
 from ..adapters import AdapterError
 from ..adapters.moa import DATA_SOURCE as MOA_SOURCE
 from ..adapters.moa import fetch_moa_lakes
-from ..catalog import load_catalog
+from ..catalog import load_catalog_async
 from ..schemas import AlertLevel, LakeSummary, ListLakesOutput
 from . import ALERT_RANK, alert_from_headroom, compute_headroom
 from .get_lake_status import CATALOG_SOURCE
 
 
 async def list_lakes(status_filter: str = "all") -> ListLakesOutput:
-    cat = load_catalog()
     summaries: list[LakeSummary] = []
-    catalog_names: set[str] = set()  # 與 data.moa 做模糊去重(同一座湖兩種命名)
-    moa_names: set[str] = set()  # data.moa 之間僅精確去重
+    catalog_names: set[str] = set()
+    moa_names: set[str] = set()
 
-    # 1) catalog 湖(含主案例,可算 headroom/alert)
+    # 1) DB-first（DB 空則 fallback YAML），由 load_catalog_async 統一處理
+    cat = await load_catalog_async()
     for lake in cat.lakes:
         headroom = compute_headroom(lake)
         alert = alert_from_headroom(headroom, lake.threshold)
@@ -25,7 +25,7 @@ async def list_lakes(status_filter: str = "all") -> ListLakesOutput:
             LakeSummary(
                 id=lake.id,
                 name=lake.name_zh,
-                status=lake.status if lake.status in ("active", "monitoring", "archived") else "monitoring",
+                status=lake.status if lake.status in ("monitoring", "archived") else "monitoring",
                 alert_level=alert,
                 formed_at=lake.formed_at,
                 lat=lake.location.lat,
@@ -66,14 +66,11 @@ async def list_lakes(status_filter: str = "all") -> ListLakesOutput:
     if status_filter != "all":
         summaries = [s for s in summaries if s.status == status_filter]
 
-    # 4) 主排 status(警戒中→觀察中→已解除);同 status 內依風險(alert 高→低);再 formed_at 新→舊
-    STATUS_RANK = {"active": 2, "monitoring": 1, "archived": 0}
-    summaries.sort(
-        key=lambda s: (
-            -STATUS_RANK.get(s.status, 0),
-            -ALERT_RANK.get(s.alert_level, 0),
-            [-ord(c) for c in (s.formed_at or "")],
-        )
-    )
+    # 4) 主排：警戒中(alert非unknown) > 觀察中 > 已解除；次排：formed_at 新→舊
+    def _sort_key(s):
+        is_alert = s.alert_level and s.alert_level.value == "red"
+        group = 2 if is_alert else (1 if s.status == "monitoring" else 0)
+        return (-group, [-(ord(c)) for c in (s.formed_at or "")])
+    summaries.sort(key=_sort_key)
 
     return ListLakesOutput(lakes=summaries, total=len(summaries), data_sources=sources)

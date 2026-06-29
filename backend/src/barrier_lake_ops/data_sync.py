@@ -151,35 +151,322 @@ async def collect_villages(session: AsyncSession) -> int:
         raise
 
 
-async def seed_manual(session: AsyncSession) -> None:
-    """從 catalog 種子 lake_states / lake_thresholds(僅當對應表為空)。"""
-    cat = load_catalog()
-    has_state = (await session.execute(select(func.count()).select_from(LakeState))).scalar()
-    has_thr = (await session.execute(select(func.count()).select_from(LakeThreshold))).scalar()
-    if not has_state:
-        for lk in cat.lakes:
-            rs = lk.reference_state
-            if rs is None:
+# async def seed_manual(session: AsyncSession) -> None:
+#     """從 catalog 種子 lake_states / lake_thresholds(僅當對應表為空)。"""
+#     cat = load_catalog()
+#     has_state = (await session.execute(select(func.count()).select_from(LakeState))).scalar()
+#     has_thr = (await session.execute(select(func.count()).select_from(LakeThreshold))).scalar()
+#     if not has_state:
+#         for lk in cat.lakes:
+#             rs = lk.reference_state
+#             if rs is None:
+#                 continue
+#             session.add(
+#                 LakeState(
+#                     lake_id=lk.id, water_level_m=rs.water_level_m,
+#                     storage_million_m3=rs.storage_million_m3, observed_at=rs.observed_at,
+#                     note=rs.note, updated_by="系統匯入",
+#                 )
+#             )
+#     if not has_thr:
+#         for lk in cat.lakes:
+#             th = lk.threshold
+#             session.add(
+#                 LakeThreshold(
+#                     lake_id=lk.id, overflow_elevation_m=th.overflow_elevation_m,
+#                     red_alert_headroom_m=th.red_alert_headroom_m,
+#                     orange_alert_headroom_m=th.orange_alert_headroom_m,
+#                     yellow_alert_headroom_m=th.yellow_alert_headroom_m, updated_by="系統匯入",
+#                 )
+#             )
+#     await session.commit()
+
+
+import math
+import yaml
+
+
+def _haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    R = 6371.0
+    φ1, φ2 = math.radians(lat1), math.radians(lat2)
+    dφ = math.radians(lat2 - lat1)
+    dλ = math.radians(lon2 - lon1)
+    a = math.sin(dφ / 2) ** 2 + math.cos(φ1) * math.cos(φ2) * math.sin(dλ / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+_DUPLICATE_DISTANCE_KM = 0.5
+_NAME_SIMILARITY_THRESHOLD = 0.6
+
+
+def _name_similarity(a: str, b: str) -> float:
+    if not a or not b:
+        return 0.0
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    common = sum(1 for ch in shorter if ch in longer)
+    return common / len(shorter)
+
+
+def _make_geo_key(lon: float | None, lat: float | None, formed_at: str | None) -> str | None:
+    if lon is None or lat is None or not formed_at:
+        return None
+    return f"{lon:.3f}_{lat:.3f}_{formed_at}"
+
+
+def _make_lake_id(name_zh: str | None, formed_at: str | None) -> str:
+    import re
+    year = (formed_at or "")[:4] or "unknown"
+    name = re.sub(r"堰塞湖", "", name_zh or "")
+    name = re.sub(r"[()（）]", "", name).strip()
+    return f"{name}-{year}"
+
+
+def _find_duplicates(rows: list[dict]) -> list[dict]:
+    warnings: list[dict] = []
+    for i, a in enumerate(rows):
+        for b in rows[i + 1:]:
+            if a["lake_id"] == b["lake_id"]:
                 continue
-            session.add(
-                LakeState(
-                    lake_id=lk.id, water_level_m=rs.water_level_m,
-                    storage_million_m3=rs.storage_million_m3, observed_at=rs.observed_at,
-                    note=rs.note, updated_by="系統匯入",
-                )
-            )
-    if not has_thr:
-        for lk in cat.lakes:
-            th = lk.threshold
-            session.add(
-                LakeThreshold(
-                    lake_id=lk.id, overflow_elevation_m=th.overflow_elevation_m,
-                    red_alert_headroom_m=th.red_alert_headroom_m,
-                    orange_alert_headroom_m=th.orange_alert_headroom_m,
-                    yellow_alert_headroom_m=th.yellow_alert_headroom_m, updated_by="系統匯入",
-                )
-            )
+            if not a.get("formed_at") or a["formed_at"] != b.get("formed_at"):
+                continue
+            has_coords = not (a["lon"] is None or a["lat"] is None or b["lon"] is None or b["lat"] is None)
+            dist = _haversine_km(a["lon"], a["lat"], b["lon"], b["lat"]) if has_coords else None
+            name_sim = _name_similarity(a.get("name_zh", ""), b.get("name_zh", ""))
+            close = (dist is not None and dist < _DUPLICATE_DISTANCE_KM)
+            similar_name = name_sim >= _NAME_SIMILARITY_THRESHOLD and close
+            if close or similar_name:
+                reasons = []
+                if close:
+                    reasons.append(f"距離 {round(dist * 1000)} m")
+                if similar_name:
+                    reasons.append(f"名稱相似度 {round(name_sim * 100)}%")
+                warnings.append({
+                    "lake_id_a": a["lake_id"], "name_a": a["name_zh"],
+                    "lake_id_b": b["lake_id"], "name_b": b["name_zh"],
+                    "formed_at": a["formed_at"],
+                    "distance_km": round(dist, 3) if dist is not None else None,
+                    "source": "yaml_internal",
+                    "reason": f"YAML 內部：formed_at 相同（{a['formed_at']}），{' / '.join(reasons)}",
+                })
+    return warnings
+
+
+def _parse_yaml_lakes(content: bytes) -> tuple[list[dict], list[dict], list[dict]]:
+    """解析 lake_catalog YAML → (catalog_rows, threshold_rows, state_rows)。"""
+    raw = yaml.safe_load(content.decode("utf-8"))
+    defaults = raw.get("defaults", {}) or {}
+    default_threshold = defaults.get("threshold", {}) or {}
+    catalog_rows, threshold_rows, state_rows = [], [], []
+    for lk in raw.get("lakes", []):
+        loc = lk.get("location", {}) or {}
+        centroid = loc.get("centroid") or []
+        weather = lk.get("upstream_weather", {}) or {}
+        lake_id = _make_lake_id(lk.get("name_zh"), lk.get("formed_at"))
+        catalog_rows.append({
+            "lake_id": lake_id,
+            "name_zh": lk.get("name_zh", lk.get("id", "")),
+            "status": "monitoring" if lk.get("status") in (None, "active") else lk.get("status"),
+            "formed_at": lk.get("formed_at"),
+            "lon": centroid[0] if len(centroid) > 1 else None,
+            "lat": centroid[1] if len(centroid) > 1 else None,
+            "cwa_stations": weather.get("cwa_stations") or [],
+            "dem_bbox": lk.get("downstream_dem_bbox"),
+            "moa_dataset_id": lk.get("moa_dataset_id"),
+            "note": lk.get("note"),
+            "geo_key": _make_geo_key(
+                centroid[0] if len(centroid) > 1 else None,
+                centroid[1] if len(centroid) > 1 else None,
+                lk.get("formed_at"),
+            ),
+        })
+        th = {**default_threshold, **(lk.get("threshold") or {})}
+        if any(th.get(k) is not None for k in ("overflow_elevation_m", "red_alert_headroom_m")):
+            threshold_rows.append({
+                "lake_id": lake_id,
+                "overflow_elevation_m": th.get("overflow_elevation_m"),
+                "red_alert_headroom_m": th.get("red_alert_headroom_m", 20.0),
+                "orange_alert_headroom_m": th.get("orange_alert_headroom_m", 40.0),
+                "yellow_alert_headroom_m": th.get("yellow_alert_headroom_m", 70.0),
+                "updated_by": "YAML 匯入",
+            })
+        rs = lk.get("reference_state") or {}
+        if any(rs.get(k) is not None for k in ("water_level_m", "storage_million_m3")):
+            state_rows.append({
+                "lake_id": lake_id,
+                "water_level_m": rs.get("water_level_m"),
+                "storage_million_m3": rs.get("storage_million_m3"),
+                "observed_at": rs.get("observed_at"),
+                "note": rs.get("note"),
+                "updated_by": "YAML 匯入",
+            })
+    return catalog_rows, threshold_rows, state_rows
+
+
+async def upload_lake_catalog(
+    session: AsyncSession,
+    content: bytes,
+    filename: str = "",
+    force: bool = False,
+    skip_ids: set[str] | None = None,
+) -> dict:
+    """解析 YAML → 重複檢查 → upsert lake_catalog → 更新 DatasetSync。"""
+    from .db.models import LakeCatalog
+
+    catalog_rows, threshold_rows, state_rows = _parse_yaml_lakes(content)
+    if not catalog_rows:
+        return {"imported": False, "count": 0, "warnings": [], "message": "YAML 解析後無任何堰塞湖資料"}
+
+    if not force and not skip_ids:
+        warnings = _find_duplicates(catalog_rows)
+        if warnings:
+            return {"imported": False, "count": 0, "warnings": warnings}
+
+    if skip_ids:
+        catalog_rows = [r for r in catalog_rows if r["lake_id"] not in skip_ids]
+        kept = {r["lake_id"] for r in catalog_rows}
+        threshold_rows = [r for r in threshold_rows if r["lake_id"] in kept]
+        state_rows = [r for r in state_rows if r["lake_id"] in kept]
+
+    if not catalog_rows:
+        return {"imported": True, "count": 0, "warnings": [], "message": "略過全部重複項目，無資料匯入"}
+
+    stmt = pg_insert(LakeCatalog).values(catalog_rows)
+    update_cols = {
+        c: stmt.excluded[c]
+        for c in ("name_zh", "status", "formed_at", "lon", "lat",
+                  "cwa_stations", "dem_bbox", "moa_dataset_id", "note", "geo_key")
+    }
+    await session.execute(stmt.on_conflict_do_update(index_elements=["lake_id"], set_=update_cols))
+
+    if threshold_rows:
+        th_stmt = pg_insert(LakeThreshold).values(threshold_rows)
+        th_cols = {c: th_stmt.excluded[c] for c in
+                   ("overflow_elevation_m", "red_alert_headroom_m",
+                    "orange_alert_headroom_m", "yellow_alert_headroom_m", "updated_by")}
+        await session.execute(th_stmt.on_conflict_do_update(index_elements=["lake_id"], set_=th_cols))
+
+    if state_rows:
+        st_stmt = pg_insert(LakeState).values(state_rows)
+        st_cols = {c: st_stmt.excluded[c] for c in
+                   ("water_level_m", "storage_million_m3", "observed_at", "note", "updated_by")}
+        await session.execute(st_stmt.on_conflict_do_update(index_elements=["lake_id"], set_=st_cols))
+
+    ts = _now()
+    skipped = len(skip_ids) if skip_ids else 0
+    suffix = f"（略過 {skipped} 筆重複）" if skipped else ""
+    await _upsert_sync(
+        session, "lakes_catalog",
+        status="ok", last_run_at=ts, last_success_at=ts, last_changed_at=ts,
+        row_count=len(catalog_rows),
+        message=(filename or f"{len(catalog_rows)} 筆") + suffix,
+    )
     await session.commit()
+    return {"imported": True, "count": len(catalog_rows), "warnings": [],
+            "message": f"已匯入 {len(catalog_rows)} 筆（含 {len(threshold_rows)} 筆門檻、{len(state_rows)} 筆狀態）{suffix}"}
+
+
+async def sync_dem_to_minio(lake_ids: list[str]) -> None:
+    """背景任務：對指定 lake_id 清單，從 DB dem_bbox 抓 SRTM 高程並上傳 MinIO。
+
+    與 prep_dem_from_db.py 相同策略：
+    - 有 dem_bbox → 直接用
+    - 無 dem_bbox 但有 lon/lat → 自動追下游路徑推算 bbox
+    - 兩者皆無 → 跳過
+    只處理 MinIO 尚未有 .npy 的湖。
+    """
+    import io
+    import numpy as np
+    from .adapters.dem_models.common import has_dem, _minio_client
+    from .adapters.dem_models.bbox_derive import normalize_bbox, derive_downstream_bbox
+    from .db.models import LakeCatalog
+    from .db.engine import SessionLocal
+
+    s = get_settings()
+    if not s.minio_endpoint:
+        logger.info("[dem_sync] MINIO_ENDPOINT 未設定，跳過")
+        return
+
+    async with SessionLocal() as session:
+        rows = (await session.execute(
+            select(LakeCatalog.lake_id, LakeCatalog.dem_bbox, LakeCatalog.lon, LakeCatalog.lat)
+            .where(LakeCatalog.lake_id.in_(lake_ids))
+        )).all()
+
+    # 解析 bbox：有設定用設定值，否則從 lon/lat 推算
+    to_fetch: list[tuple[str, list[float]]] = []
+    for row in rows:
+        lake_id = row.lake_id
+        if has_dem(lake_id):
+            continue
+        bbox = normalize_bbox(row.dem_bbox)
+        if bbox is None and row.lon is not None and row.lat is not None:
+            logger.info(f"[dem_sync] {lake_id} 無 dem_bbox，嘗試從 lon/lat 推算")
+            try:
+                bbox = await asyncio.to_thread(
+                    derive_downstream_bbox, float(row.lon), float(row.lat), lake_id=lake_id
+                )
+            except Exception as e:
+                logger.warning(f"[dem_sync] {lake_id} bbox 推算失敗: {e}")
+        if bbox is None:
+            logger.info(f"[dem_sync] {lake_id} 無法取得 bbox，跳過")
+            continue
+        to_fetch.append((lake_id, bbox))
+
+    if not to_fetch:
+        logger.info("[dem_sync] 無需補充 DEM")
+        return
+
+    logger.info(f"[dem_sync] 開始補充 {len(to_fetch)} 個湖的 DEM")
+    client = _minio_client()
+    bucket = s.minio_default_bucket
+    if not client.bucket_exists(bucket):
+        client.make_bucket(bucket)
+        logger.info(f"[dem_sync] 建立 MinIO bucket: {bucket}")
+    GRID = 40
+
+    # bbox_derive 的 _fetch_elevation_grid 用 sync httpx + time.sleep；以 to_thread 包起
+    def _fetch_and_upload(lake_id: str, bbox: list[float]) -> None:
+        import time
+        import httpx as _httpx
+        minlon, minlat, maxlon, maxlat = bbox
+        lons = [minlon + (maxlon - minlon) * i / (GRID - 1) for i in range(GRID)]
+        lats = list(reversed([minlat + (maxlat - minlat) * j / (GRID - 1) for j in range(GRID)]))
+        elev: list[list] = [[None] * GRID for _ in range(GRID)]
+        points = [(j, i, lats[j], lons[i]) for j in range(GRID) for i in range(GRID)]
+        with _httpx.Client(timeout=30) as http:
+            for k in range(0, len(points), 100):
+                batch = points[k: k + 100]
+                locs = "|".join(f"{p[2]:.6f},{p[3]:.6f}" for p in batch)
+                resp = http.get("https://api.opentopodata.org/v1/srtm30m", params={"locations": locs})
+                resp.raise_for_status()
+                for p, res in zip(batch, resp.json()["results"]):
+                    elev[p[0]][p[1]] = res.get("elevation")
+                time.sleep(1.1)
+
+        arr = np.array(
+            [[(v if v is not None else float("nan")) for v in row] for row in elev],
+            dtype="float32",
+        )
+        meta = {"bbox": bbox, "shape": [GRID, GRID], "row0": "north",
+                "source": "SRTM 30m (NASA, public domain) via opentopodata"}
+
+        npy_buf = io.BytesIO()
+        np.save(npy_buf, arr)
+        npy_buf.seek(0)
+        npy_size = npy_buf.getbuffer().nbytes
+        json_bytes = json.dumps(meta).encode()
+
+        client.put_object(bucket, f"{lake_id}.npy",
+                          npy_buf, npy_size, content_type="application/octet-stream")
+        client.put_object(bucket, f"{lake_id}.json",
+                          io.BytesIO(json_bytes), len(json_bytes), content_type="application/json")
+
+    for lake_id, bbox in to_fetch:
+        try:
+            await asyncio.to_thread(_fetch_and_upload, lake_id, bbox)
+            logger.info(f"[dem_sync] {lake_id} 上傳完成")
+        except Exception as e:
+            logger.warning(f"[dem_sync] {lake_id} 失敗: {e}")
 
 
 async def _seed_villages_from_files(session: AsyncSession) -> None:
@@ -207,14 +494,21 @@ async def bootstrap(session: AsyncSession) -> None:
         cnt = (await session.execute(select(func.count()).select_from(Village))).scalar()
         if not cnt:
             await _seed_villages_from_files(session)
-        await seed_manual(session)
+        # await seed_manual(session)
     except Exception as exc:  # noqa: BLE001
         logger.warning("data_sync bootstrap 降級: %s", exc)
 
 
 async def run_scheduled(session: AsyncSession) -> dict:
-    """排程 / 手動觸發:跑收集器,回傳結果摘要。"""
+    """排程 / 手動觸發:跑收集器 + 補充缺少的 DEM,回傳結果摘要。"""
     n = await collect_villages(session)
+
+    from .db.models import LakeCatalog
+    rows = (await session.execute(
+        select(LakeCatalog.lake_id).where(LakeCatalog.dem_bbox.isnot(None))
+    )).scalars().all()
+    asyncio.create_task(sync_dem_to_minio(list(rows)))
+
     return {"villages": n}
 
 

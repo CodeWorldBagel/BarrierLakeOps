@@ -33,6 +33,9 @@ SOURCE_POP = DataSource(
 # 統一村里記錄格式:(shapely 幾何, 欄位含人口)。檔案版與 DB 版都產出這個格式。
 @lru_cache
 def _load_villages_from_files() -> list[tuple]:
+    rows = _load_villages_from_db_sync()
+    if rows:
+        return rows
     d = get_settings().data_dir / "villages"
     gj = json.loads((d / "villages.geojson").read_text(encoding="utf-8"))
     pop = json.loads((d / "population.json").read_text(encoding="utf-8"))
@@ -60,6 +63,70 @@ def _load_villages_from_files() -> list[tuple]:
             )
         )
     return out
+
+
+def _load_villages_from_db_sync() -> list[tuple]:
+    """優先資料來源：同步從 DB 讀村里資料（asyncpg 同步連線，避免 event loop 衝突）。"""
+    try:
+        import asyncpg
+        from ..config import get_settings
+        s = get_settings()
+        # async url: postgresql+asyncpg://user:pass@host/db → host/db 拆解
+        url = s.async_database_url.replace("postgresql+asyncpg://", "")
+        userpass, hostdb = url.split("@", 1)
+        user, password = userpass.split(":", 1)
+        host_port, database = hostdb.split("/", 1)
+        host, port = (host_port.split(":", 1) + ["5432"])[:2]
+        import asyncio
+        loop = asyncio.new_event_loop()
+        conn = loop.run_until_complete(asyncpg.connect(
+            host=host, port=int(port), user=user, password=password, database=database,
+        ))
+        rows = loop.run_until_complete(conn.fetch(
+            "SELECT village_code, county, town, village, geometry, "
+            "households, population, elderly_65plus, children_under6 FROM villages"
+        ))
+        loop.run_until_complete(conn.close())
+        loop.close()
+    except Exception:
+        return []
+
+    out: list[tuple] = []
+    for row in rows:
+        geometry = row["geometry"]
+        if not geometry:
+            continue
+        try:
+            geom = shape(geometry if isinstance(geometry, dict) else json.loads(geometry))
+        except Exception:
+            continue
+        out.append((geom, {
+            "village_code": row["village_code"],
+            "county": row["county"],
+            "town": row["town"],
+            "village": row["village"],
+            "households": int(row["households"] or 0),
+            "population": int(row["population"] or 0),
+            "elderly_65plus": int(row["elderly_65plus"] or 0),
+            "children_under6": int(row["children_under6"] or 0),
+        }))
+    return out
+
+
+def prime_village_cache_from_db() -> int:
+    """Startup helper: warm the lru_cache from DB using a fresh event loop.
+    Must be called from a thread (e.g. asyncio.to_thread), not from a running loop.
+    Returns the number of villages loaded.
+    """
+    rows = _load_villages_from_db_sync()
+    if rows:
+        # Patch the lru_cache by replacing the cached result
+        _load_villages_from_files.cache_clear()
+        # We can't directly inject into lru_cache; call the function so it
+        # runs and caches — but _load_villages_from_files calls _load_villages_from_db_sync
+        # which will succeed here since we're in a fresh thread with no running loop.
+        _load_villages_from_files()
+    return len(rows)
 
 
 def villages_from_db_rows(rows) -> list[tuple]:

@@ -34,6 +34,13 @@
       <!-- 堰塞湖清單:上傳模組 -->
       <section v-if="byKind.upload.length" class="panel panel-pad sec">
         <h3>📋 堰塞湖清單 <span class="chip">手動上傳 YAML</span></h3>
+        <div v-for="d in byKind.upload" :key="d.key" class="row">
+          <span class="nm">{{ d.label }}</span>
+          <span class="muted">{{ d.message || d.source }}</span>
+          <span class="muted">{{ d.last_success_at ? fmt(d.last_success_at) : "尚未上傳" }}</span>
+          <span class="muted">{{ d.row_count != null ? d.row_count + " 筆" : "" }}</span>
+          <span class="sdot" :class="d.status">{{ statusZh(d.status) }}</span>
+        </div>
         <div
           class="drop"
           :class="{ over: dragOver }"
@@ -44,15 +51,31 @@
           <div class="muted">{{ pickedName || "將 lakes.yaml 拖曳至此,或" }}</div>
           <div class="drop-actions">
             <button class="btn sm" @click="fileInput?.click()">選擇檔案</button>
-            <button class="btn sm primary" :disabled="!picked || uploading" @click="doUpload">
+            <button class="btn sm primary" :disabled="!picked || uploading" @click="doUpload()">
               {{ uploading ? "上傳中…" : "上傳並解析" }}
             </button>
           </div>
           <input ref="fileInput" type="file" accept=".yaml,.yml" hidden @change="onPick" />
         </div>
         <div v-if="uploadMsg" class="upmsg muted small">ℹ {{ uploadMsg }}</div>
-        <div v-for="d in byKind.upload" :key="d.key" class="muted small mt">
-          後端解析入庫由組員實作。目前狀態:{{ statusZh(d.status) }}{{ d.message ? "(" + d.message + ")" : "" }}
+        <!-- 重複警告 dialog -->
+        <div v-if="dupWarnings.length" class="modal-bg" @click.self="dupWarnings = []">
+          <div class="panel panel-pad modal">
+            <h3>⚠ 偵測到潛在重複堰塞湖</h3>
+            <p class="muted small">以下項目 formed_at 相同且距離小於 500m，可能為同一座湖。</p>
+            <div v-for="w in dupWarnings" :key="w.lake_id_a + w.lake_id_b" class="dup-row">
+              <span class="nm">{{ w.name_a }} <span class="muted">({{ w.lake_id_a }})</span></span>
+              <span class="muted">↔</span>
+              <span class="nm">{{ w.name_b }} <span class="muted">({{ w.lake_id_b }})</span></span>
+              <span class="muted small">{{ w.reason }}</span>
+            </div>
+            <div class="tip-box">略過：跳過上列項目，其餘照常匯入。</div>
+            <div class="modal-actions">
+              <button class="btn" @click="dupWarnings = []">取消</button>
+              <button class="btn" :disabled="uploading" @click="doUploadSkip">略過</button>
+              <button class="btn primary" :disabled="uploading" @click="doUpload(true)">全部匯入</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -133,6 +156,7 @@ const pickedName = computed(() => picked.value?.name || "");
 const uploading = ref(false);
 const uploadMsg = ref("");
 const dragOver = ref(false);
+const dupWarnings = ref<any[]>([]);
 
 function setFile(f: File | null | undefined) {
   if (!f) return;
@@ -148,19 +172,31 @@ function onDrop(e: DragEvent) {
   dragOver.value = false;
   setFile(e.dataTransfer?.files?.[0]);
 }
-async function doUpload() {
+async function doUpload(force = false, skipIds?: string[]) {
   if (!picked.value) return;
   uploading.value = true;
   try {
-    const r: any = await api.uploadLakes(picked.value);
+    const r: any = await api.uploadLakes(picked.value, force, skipIds);
+    if (!r?.imported && r?.warnings?.length) {
+      dupWarnings.value = r.warnings;
+      uploadMsg.value = "";
+      return;
+    }
+    dupWarnings.value = [];
     uploadMsg.value = r?.message || "已上傳。";
     picked.value = null;
+    if (fileInput.value) fileInput.value.value = "";
     await load();
   } catch (e: any) {
     uploadMsg.value = "上傳失敗:" + (e?.message || e);
   } finally {
     uploading.value = false;
   }
+}
+
+function doUploadSkip() {
+  const ids = dupWarnings.value.flatMap((w: any) => [w.lake_id_a, w.lake_id_b]);
+  doUpload(false, ids);
 }
 
 </script>
@@ -191,6 +227,8 @@ h1 { margin: 0 0 4px; }
 .drop.over { border-color: var(--accent); background: var(--bg-2); }
 .drop-actions { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
 .upmsg, .mt { margin-top: 8px; }
+.dup-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.tip-box { font-size: 11px; color: var(--muted); border-left: 2px solid var(--border); padding: 2px 8px; margin-top: 10px; }
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 .modal { width: 100%; max-width: 420px; }
 .modal h3 { margin: 0 0 12px; }

@@ -8,11 +8,11 @@ from shapely.geometry import Point, shape
 from ..adapters.dem import has_dem
 from ..adapters.dem_models.common import (
     DEFAULT_DIRECTIONAL_RELATIVE_RADIUS,
-    _window_min,
+    _load_window_min,
     load_dem_context,
 )
 from ..adapters.population import locate_point
-from ..catalog import load_catalog
+from ..catalog import load_catalog_async
 from .inundation_runtime import estimate_flood_dem_screening_runtime
 from .inundation_runtime import resolve_breach_volume_million_m3
 
@@ -22,7 +22,7 @@ EXPLAIN_FALLBACK_PATH_LENGTH_M = 18_000
 
 async def explain_flood_cell(lake_id: str, lon: float, lat: float) -> dict:
     """查詢指定座標點的淹水狀況與原因(輕量單點查詢)。"""
-    cat = load_catalog()
+    cat = await load_catalog_async()
     lake = cat.get(lake_id)
 
     clicked_location = locate_point(lon, lat)
@@ -57,7 +57,7 @@ async def explain_flood_cell(lake_id: str, lon: float, lat: float) -> dict:
 
     elev_raw = float(dem.arr[row, col]) if not np.isnan(dem.arr[row, col]) else None
 
-    local_min = _window_min(dem.elev, radius=DEFAULT_DIRECTIONAL_RELATIVE_RADIUS)
+    local_min = _load_window_min(lake_id, DEFAULT_DIRECTIONAL_RELATIVE_RADIUS)
     relative_val = (
         float(dem.elev[row, col] - local_min[row, col])
         if np.isfinite(dem.elev[row, col])

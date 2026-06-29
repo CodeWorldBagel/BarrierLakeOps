@@ -10,8 +10,8 @@ from .common import (
     DEFAULT_WINDOW_MIN_RADIUS,
     _connected_to_min,
     _estimate_arrival_minutes,
+    _load_window_min,
     _nearest_finite_cell,
-    _window_min,
     load_dem_context,
 )
 
@@ -54,7 +54,7 @@ def estimate_flood(
 
     # HAND-like:相對高度 = 各格高程 - 鄰域谷底高程
     # 沿河谷坡降淹沒,克服單一水平水位無法同時涵蓋上下游氾濫平原的問題。
-    local_min = _window_min(elev, radius=DEFAULT_WINDOW_MIN_RADIUS)
+    local_min = _load_window_min(lake_id, DEFAULT_WINDOW_MIN_RADIUS)
     relative = elev - local_min
 
     # 洪氾高度 H(由體積推估,上限 15m,下限 3m)

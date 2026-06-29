@@ -16,10 +16,13 @@ export const useApi = () => {
     triggerSync: () => post("/data/sync", {}),
     patchLakeState: (id: string, body: any) => patch(`/data/lake-state/${id}`, body),
     patchLakeThreshold: (id: string, body: any) => patch(`/data/lake-threshold/${id}`, body),
-    uploadLakes: (file: File) => {
-      const fd = new FormData();
-      fd.append("file", file);
-      return $fetch(base + "/data/lakes/upload", { method: "POST", body: fd });
+    uploadLakes: (file: File, force = false, skipIds?: string[]) => {
+      const form = new FormData();
+      form.append("file", file);
+      const params = new URLSearchParams();
+      if (force) params.set("force", "true");
+      if (skipIds?.length) params.set("skip", skipIds.join(","));
+      return $fetch(`${base}/data/lakes/upload?${params}`, { method: "POST", body: form });
     },
     listLakes: (filter = "all") => get(`/lakes?status_filter=${filter}`),
     lakeStatus: (id: string) => get(`/lakes/${id}/status`),

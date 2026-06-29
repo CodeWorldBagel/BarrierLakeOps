@@ -54,6 +54,12 @@ async def lifespan(app: FastAPI):
                 await data_sync.bootstrap(_session)
         except Exception:  # noqa: BLE001
             pass
+        # 預載村里空間索引（從 DB 讀，避免首次請求時同步阻塞）
+        try:
+            from .adapters.population import prime_village_cache_from_db
+            await asyncio.to_thread(prime_village_cache_from_db)
+        except Exception:  # noqa: BLE001
+            pass
         _sync_task = asyncio.create_task(_daily_sync_loop())
         try:
             yield

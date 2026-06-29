@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,13 +56,27 @@ async def patch_lake_threshold(
 
 
 @router.post("/lakes/upload")
-async def upload_lakes(file: UploadFile = File(...)) -> dict:
-    """堰塞湖清單 YAML 上傳。後端解析入庫由組員實作;此處僅接收並回報尚未上線。"""
+async def upload_lakes(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    force: bool = Query(False, description="忽略重複警告強制匯入全部"),
+    skip: str = Query("", description="略過的 lake_id，逗號分隔；其餘照常匯入"),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """堰塞湖清單 YAML 上傳 → 解析入庫 lake_catalog。
+    有重複時回傳 warnings 不匯入；?force=true 全部匯入；?skip=id1,id2 略過指定 id。
+    匯入成功後背景自動補充尚缺的 DEM 資料至 MinIO。
+    """
+    from .. import data_sync
     content = await file.read()
-    return {
-        "accepted": True,
-        "parsed": False,
-        "filename": file.filename,
-        "size": len(content),
-        "message": "檔案已接收;YAML 解析入庫由組員實作,尚未上線。",
-    }
+    skip_ids = {s.strip() for s in skip.split(",") if s.strip()} if skip else None
+    result = await data_sync.upload_lake_catalog(
+        session, content, filename=file.filename or "", force=force, skip_ids=skip_ids
+    )
+    if result.get("imported"):
+        async def _run_scheduled_bg():
+            from ..db.engine import SessionLocal
+            async with SessionLocal() as bg_session:
+                await data_sync.run_scheduled(bg_session)
+        background_tasks.add_task(_run_scheduled_bg)
+    return {"accepted": True, "parsed": True, "filename": file.filename, **result}

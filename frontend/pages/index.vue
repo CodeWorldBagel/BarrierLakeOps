@@ -24,14 +24,13 @@
 
 <script setup lang="ts">
 const api = useApi();
-// 多選篩選;一進來預設選取「警戒中」「觀察中」
 const activeFilters = ref<string[]>(["alert", "monitoring"]);
 const { data: lakesData } = await useAsyncData("lakes", () => api.listLakes("all"));
 const lakes = computed<any[]>(() => (lakesData.value as any)?.lakes || []);
 
 const matchers: Record<string, (l: any) => boolean> = {
-  alert: (l) => l.alert_level && l.alert_level !== "unknown",
-  monitoring: (l) => l.status === "monitoring",
+  alert: (l) => l.alert_level === "red",
+  monitoring: (l) => l.status === "monitoring" && l.alert_level !== "red",
   archived: (l) => l.status === "archived",
 };
 const filtered = computed(() =>
