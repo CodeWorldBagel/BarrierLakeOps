@@ -14,7 +14,6 @@ from fastmcp import FastMCP
 from .schemas import BriefingAudience
 from .tools.compose_briefing import compose_briefing as _compose
 from .tools.estimate_inundation import estimate_inundation as _inundation
-from .tools.estimate_inundation import explain_flood_cell as _explain_cell
 from .tools.get_affected_population import get_affected_population as _population
 from .tools.get_lake_status import get_lake_status as _status
 from .tools.get_upstream_weather import get_upstream_weather as _weather
@@ -63,12 +62,6 @@ async def estimate_inundation(
     return (
         await _inundation(lake_id, breach_scenario, breach_volume_million_m3, model_variant)
     ).model_dump()
-
-
-@mcp.tool
-async def explain_flood_cell(lake_id: str, lon: float, lat: float) -> dict:
-    """查詢指定經緯度座標為何在(或不在)潰壩淹水範圍內,供地圖點擊互動或 LLM 解說使用。"""
-    return await _explain_cell(lake_id, lon, lat)
 
 
 @mcp.tool
