@@ -65,8 +65,18 @@ const goLake = (id: string) => navigateTo(`/lakes/${id}`);
 .grid > * { min-height: 0; }
 .mapwrap { overflow: hidden; }
 .statsbar { margin-top: 12px; font-size: 12px; text-align: center; }
+
 @media (max-width: 1024px) {
   .grid { grid-template-columns: 1fr; height: auto; }
-  .mapwrap { height: 420px; }
+  .mapwrap { height: 360px; }
+}
+@media (max-width: 768px) {
+  .dash { padding: 8px 12px 10px; }
+  .grid { gap: 10px; }
+  .mapwrap { height: 300px; }
+}
+@media (max-width: 480px) {
+  .mapwrap { height: 260px; }
+  .statsbar { font-size: 11px; }
 }
 </style>

@@ -77,6 +77,9 @@
             </div>
           </div>
         </div>
+        <div v-for="d in byKind.upload" :key="d.key" class="muted small mt">
+          後端解析入庫由組員實作。目前狀態:{{ statusZh(d.status) }}{{ d.message ? "(" + d.message + ")" : "" }}
+        </div>
       </section>
 
       <!-- 每日排程 -->
@@ -185,7 +188,6 @@ async function doUpload(force = false, skipIds?: string[]) {
     dupWarnings.value = [];
     uploadMsg.value = r?.message || "已上傳。";
     picked.value = null;
-    if (fileInput.value) fileInput.value.value = "";
     await load();
   } catch (e: any) {
     uploadMsg.value = "上傳失敗:" + (e?.message || e);

@@ -1,3 +1,10 @@
+/*
+ * Breakpoints (use these values in all @media queries — do not invent new ones)
+ *   sm  max-width: 480px   手機直式
+ *   md  max-width: 768px   手機橫式 / 小平板
+ *   lg  max-width: 1024px  平板 / 小筆電
+ */
+
 :root {
   /* 文青風:暖色紙感、墨字、霧霾色點綴 */
   --bg: #f4efe4;
@@ -98,3 +105,12 @@ h1, h2, h3 { margin: 0 0 .5em; font-weight: 600; color: var(--ink); font-family:
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-soft); font-size: 12.5px; }
 th { color: var(--muted); font-weight: 600; }
+
+@media (max-width: 768px) {
+  .app-header { padding: 10px 14px; }
+  .app-header .brand b { font-size: 16px; }
+  .app-header .brand span { display: none; }
+}
+@media (max-width: 480px) {
+  .app-header .brand b { font-size: 15px; }
+}
