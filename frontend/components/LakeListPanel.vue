@@ -70,4 +70,13 @@ const statusText = (s: string) =>
 .badge.st-monitoring .dot { background: #5878a0; }
 .badge.st-archived { color: #9a8f79; background: rgba(154,143,121,.12); border-color: rgba(154,143,121,.32); }
 .badge.st-archived .dot { background: #b6ab93; }
+
+@media (max-width: 768px) {
+  .lakelist { height: auto; max-height: 280px; }
+  .item-top .name {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 200px;
+  }
+  .filters { flex-wrap: wrap; gap: 6px; }
+}
 </style>

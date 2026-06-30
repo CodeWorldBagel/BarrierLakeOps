@@ -73,10 +73,25 @@ const onInundationAsk = (prompt: string) => chatRef.value?.ask(prompt);
 .mapcol { min-height: 0; }
 .mapwrap { flex: 1; min-height: 0; overflow: hidden; }
 .chatcol { min-height: 0; }
-@media (max-width: 1200px) {
-  .cols { grid-template-columns: 1fr; overflow-y: auto; }
-  .war { height: auto; }
-  .mapcol { height: 360px; }
-  .chatcol { height: 600px; }
+
+/* lg: 折單欄，順序：狀態(1) → 地圖(2) → 聊天(3) */
+@media (max-width: 1024px) {
+  .war { height: auto; padding: 10px 14px; }
+  .cols { grid-template-columns: 1fr; overflow-y: visible; gap: 10px; }
+  .col { order: 1; }
+  .mapcol { order: 2; height: 320px; }
+  .chatcol { order: 3; height: 500px; }
+  .col.scroll { overflow-y: visible; max-height: none; padding-right: 0; }
+  .mapwrap { height: 100%; }
+}
+/* md: 手機橫式 */
+@media (max-width: 768px) {
+  .war { padding: 8px 10px; }
+  .mapcol { height: 260px; }
+  .chatcol { height: 420px; }
+}
+/* sm: 手機直式 */
+@media (max-width: 480px) {
+  .chatcol { height: 360px; }
 }
 </style>

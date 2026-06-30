@@ -257,4 +257,14 @@ async function send() {
 .inp { display: flex; gap: 8px; }
 .field { flex: 1; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 11px; font-size: 13px; }
 .field:focus { outline: none; border-color: var(--accent); }
+
+@media (max-width: 768px) {
+  .quickbar { flex-direction: column; gap: 6px; }
+  .chip { width: 100%; text-align: center; }
+}
+@media (max-width: 480px) {
+  .inp { flex-direction: column; gap: 6px; }
+  .field { width: 100%; }
+  .inp .btn { width: 100%; }
+}
 </style>
