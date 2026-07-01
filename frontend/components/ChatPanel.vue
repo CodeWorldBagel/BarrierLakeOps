@@ -259,10 +259,12 @@ async function send() {
 .field:focus { outline: none; border-color: var(--accent); }
 
 @media (max-width: 768px) {
-  .quickbar { flex-direction: column; gap: 6px; }
-  .chip { width: 100%; text-align: center; }
+  .quickbar { flex-direction: row; gap: 6px; padding: 8px 10px; }
+  .chip { min-width: 0; padding: 5px 7px; font-size: 11px; line-height: 1.25; text-align: center; }
 }
 @media (max-width: 480px) {
+  .quickbar { flex-direction: row; gap: 6px; }
+  .chip { width: auto; }
   .inp { flex-direction: column; gap: 6px; }
   .field { width: 100%; }
   .inp .btn { width: 100%; }
