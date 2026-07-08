@@ -7,15 +7,15 @@ services:
     image: postgres:16-alpine
     container_name: barrierlake-postgres
     environment:
-      POSTGRES_USER: barrierlake
-      POSTGRES_PASSWORD: barrierlake
-      POSTGRES_DB: barrierlake
+      POSTGRES_USER: ${POSTGRES_USER:-barrierlake}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?請在 repo 根目錄 .env 設定 POSTGRES_PASSWORD(見 .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-barrierlake}
     ports:
       - "5432:5432"
     volumes:
       - barrierlake_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U barrierlake"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-barrierlake}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -25,8 +25,8 @@ services:
     container_name: barrierlake-minio
     command: server /data --console-address :9090
     environment:
-      MINIO_ROOT_USER: barrierlake
-      MINIO_ROOT_PASSWORD: barrierlake
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-barrierlake}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?請在 repo 根目錄 .env 設定 MINIO_ROOT_PASSWORD(見 .env.example)}
     ports:
       - "9000:9000"
       - "9090:9090"

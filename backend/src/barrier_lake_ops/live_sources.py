@@ -44,6 +44,17 @@ _HEADERS = {
 }
 
 
+def _safe_extract_zip(fileobj, dest: str) -> None:
+    """解壓 ZIP,逐一驗證每個 entry 目標仍落在 dest 內,阻擋 zip-slip(路徑穿越覆寫)。"""
+    dest_root = Path(dest).resolve()
+    with zipfile.ZipFile(fileobj) as zf:
+        for member in zf.namelist():
+            target = (dest_root / member).resolve()
+            if target != dest_root and dest_root not in target.parents:
+                raise RuntimeError(f"ZIP entry 逸出解壓目錄,已拒絕: {member!r}")
+        zf.extractall(dest_root)
+
+
 def _lake_bboxes() -> list[tuple[float, float, float, float]]:
     out = []
     for lk in load_catalog().lakes:
@@ -67,7 +78,7 @@ def download_villages(timeout: float = 180) -> tuple[list[dict], set[str]]:
     feats: list[dict] = []
     kept: set[str] = set()
     with TemporaryDirectory() as td:
-        zipfile.ZipFile(io.BytesIO(blob)).extractall(td)
+        _safe_extract_zip(io.BytesIO(blob), td)
         shps = sorted(Path(td).rglob("*.shp"))
         if not shps:
             raise RuntimeError("ZIP 內無 .shp")

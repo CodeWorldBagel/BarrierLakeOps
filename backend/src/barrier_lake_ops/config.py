@@ -46,8 +46,10 @@ class Settings(BaseSettings):
     # 延伸選項
     ncdr_token: str = ""
 
-    # 資料庫
-    database_url: str = "postgresql://barrierlake:barrierlake@db:5432/barrierlake"
+    # 資料庫 — 憑證不寫死在原始碼。正式環境由 Zeabur service 變數注入 DATABASE_URL;
+    # 本機開發把含密碼的連線字串放進 gitignored backend/.env。預設留空,一律由 .env / 環境
+    # 變數提供;未設時 db 層優雅降級(不阻擋非 DB 端點)。
+    database_url: str = ""
 
     # 本地資料 / 快取
     cache_dir: Path = BACKEND_DIR / ".cache"
@@ -66,8 +68,14 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        """SQLAlchemy async 用 asyncpg driver。"""
+        """SQLAlchemy async 用 asyncpg driver。
+
+        未設 DATABASE_URL 時回傳一個「可被 create_async_engine 解析、但連不上」的
+        佔位 URL,讓 engine 仍能於 import 期建立;實際連線失敗由 db 層優雅降級。
+        """
         url = self.database_url
+        if not url:
+            return "postgresql+asyncpg://localhost/_unset"
         if url.startswith("postgresql://"):
             return url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
