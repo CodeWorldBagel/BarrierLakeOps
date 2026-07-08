@@ -36,6 +36,8 @@ class CSRFOriginGuard:
     - 通過者原封不動轉交,不緩衝回應 → 不影響 /chat 的 SSE 串流。
     - 無 Origin/Referer 的非瀏覽器呼叫(MCP client、curl、伺服器間)放行:
       CSRF 僅發生於瀏覽器夾帶 ambient 憑證的情境。
+    - 同源請求(Origin host == 請求自身 Host)放行:同源不構成 CSRF,
+      讓後端自家的 /docs Swagger UI 等同源寫入可用。
     - /mcp 遠端 MCP 端點自有 session 驗證,豁免。
     """
 
@@ -50,7 +52,11 @@ class CSRFOriginGuard:
             and not scope["path"].startswith("/mcp")
         ):
             origin = self._origin(scope)
-            if origin is not None and origin not in self.allowed:
+            if (
+                origin is not None
+                and origin not in self.allowed
+                and not self._same_origin(scope, origin)
+            ):
                 await JSONResponse(
                     {"detail": "請求來源未授權(CSRF 防護)"}, status_code=403
                 )(scope, receive, send)
@@ -69,6 +75,12 @@ class CSRFOriginGuard:
             if parts.scheme and parts.netloc:
                 return f"{parts.scheme}://{parts.netloc}"
         return None
+
+    @staticmethod
+    def _same_origin(scope, origin: str) -> bool:
+        """Origin 的 host[:port] 與請求自身 Host 相同 → 同源,放行。"""
+        host = dict(scope["headers"]).get(b"host")
+        return bool(host) and urlsplit(origin).netloc == host.decode("latin-1")
 
 # 遠端 MCP:把同一份 6 工具以 streamable-HTTP 掛在 /mcp,讓 Claude / Cursor 等可一鍵接入。
 # http_app 自帶 session-manager lifespan,需與 FastAPI 的建表 lifespan 合併執行。
