@@ -69,18 +69,19 @@ def _load_villages_from_db_sync() -> list[tuple]:
     """優先資料來源：同步從 DB 讀村里資料（asyncpg 同步連線，避免 event loop 衝突）。"""
     try:
         import asyncpg
+        from sqlalchemy.engine import make_url
         from ..config import get_settings
         s = get_settings()
-        # async url: postgresql+asyncpg://user:pass@host/db → host/db 拆解
-        url = s.async_database_url.replace("postgresql+asyncpg://", "")
-        userpass, hostdb = url.split("@", 1)
-        user, password = userpass.split(":", 1)
-        host_port, database = hostdb.split("/", 1)
-        host, port = (host_port.split(":", 1) + ["5432"])[:2]
+        # 用 SQLAlchemy 解析連線字串，正確處理無密碼 / 密碼含特殊字元等情況。
+        u = make_url(s.async_database_url)
         import asyncio
         loop = asyncio.new_event_loop()
         conn = loop.run_until_complete(asyncpg.connect(
-            host=host, port=int(port), user=user, password=password, database=database,
+            host=u.host or "localhost",
+            port=u.port or 5432,
+            user=u.username,
+            password=u.password,
+            database=u.database,
         ))
         rows = loop.run_until_complete(conn.fetch(
             "SELECT village_code, county, town, village, geometry, "

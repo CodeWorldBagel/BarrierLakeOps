@@ -15,6 +15,7 @@
 
 ## 本機開發
 ```bash
+cp .env.example .env                    # 首次:複製範本;再編輯 .env 填入 POSTGRES_PASSWORD / MINIO_ROOT_PASSWORD(留空會被擋),.env 不進版控
 docker compose up -d postgres          # 本機 Postgres
 cd backend && uv sync && uv run uvicorn barrier_lake_ops.app:app --reload --port 8000
 cd frontend && npm install && npm run dev   # http://localhost:3000
