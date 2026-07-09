@@ -45,14 +45,15 @@ _HEADERS = {
 
 
 def _safe_extract_zip(fileobj, dest: str) -> None:
-    """解壓 ZIP,逐一驗證每個 entry 目標仍落在 dest 內,阻擋 zip-slip(路徑穿越覆寫)。"""
+    """解壓 ZIP,逐一驗證每個 entry 目標仍落在 dest 內後才解出該檔,阻擋 zip-slip
+    (路徑穿越覆寫)。驗證與解壓在同一路徑逐檔進行,不呼叫 extractall()。"""
     dest_root = Path(dest).resolve()
     with zipfile.ZipFile(fileobj) as zf:
         for member in zf.namelist():
             target = (dest_root / member).resolve()
             if target != dest_root and dest_root not in target.parents:
                 raise RuntimeError(f"ZIP entry 逸出解壓目錄,已拒絕: {member!r}")
-        zf.extractall(dest_root)
+            zf.extract(member, dest_root)
 
 
 def _lake_bboxes() -> list[tuple[float, float, float, float]]:
