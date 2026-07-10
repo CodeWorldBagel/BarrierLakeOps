@@ -3,10 +3,11 @@ export const useApi = () => {
   const base = useRuntimeConfig().public.apiBase as string;
 
   const get = <T = any>(path: string) => $fetch<T>(base + path);
+  // 改變狀態的請求一律夾帶 CSRF token(見 useCsrfToken.ts)
   const post = <T = any>(path: string, body: any) =>
-    $fetch<T>(base + path, { method: "POST", body });
+    $fetch<T>(base + path, { method: "POST", body, headers: csrfHeaders() });
   const patch = <T = any>(path: string, body: any) =>
-    $fetch<T>(base + path, { method: "PATCH", body });
+    $fetch<T>(base + path, { method: "PATCH", body, headers: csrfHeaders() });
 
   return {
     base,
@@ -22,7 +23,11 @@ export const useApi = () => {
       const params = new URLSearchParams();
       if (force) params.set("force", "true");
       if (skipIds?.length) params.set("skip", skipIds.join(","));
-      return $fetch(`${base}/data/lakes/upload?${params}`, { method: "POST", body: form });
+      return $fetch(`${base}/data/lakes/upload?${params}`, {
+        method: "POST",
+        body: form,
+        headers: csrfHeaders(),
+      });
     },
     listLakes: (filter = "all") => get(`/lakes?status_filter=${filter}`),
     lakeStatus: (id: string) => get(`/lakes/${id}/status`),

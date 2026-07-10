@@ -33,6 +33,11 @@ class CSRFOriginGuard:
     不符回 403。採 Fortify 建議之「Check HTTP Referer/Origin headers」——攻擊者
     無法在跨站偽造請求時竄改這兩個 header。
 
+    另對「已授權的跨源前端」(Origin 在 CORS_ORIGINS 名單內)要求請求夾帶
+    ``X-CSRF-Token`` 自訂 header(由前端 useCsrfToken 產生的每工作階段隨機 nonce):
+    跨站偽造請求無法附加自訂 header(會觸發 CORS preflight 而被擋),
+    與 Origin 檢查互為雙重防護。
+
     - 通過者原封不動轉交,不緩衝回應 → 不影響 /chat 的 SSE 串流。
     - 無 Origin/Referer 的非瀏覽器呼叫(MCP client、curl、伺服器間)放行:
       CSRF 僅發生於瀏覽器夾帶 ambient 憑證的情境。
@@ -59,6 +64,19 @@ class CSRFOriginGuard:
             ):
                 await JSONResponse(
                     {"detail": "請求來源未授權(CSRF 防護)"}, status_code=403
+                )(scope, receive, send)
+                return
+            # 已授權的跨源前端:再驗證自訂 header 存在(double-submit 之
+            # custom-header 變體;跨站偽造無法附加自訂 header)
+            if (
+                origin is not None
+                and origin in self.allowed
+                and not self._same_origin(scope, origin)
+                and not dict(scope["headers"]).get(b"x-csrf-token")
+            ):
+                await JSONResponse(
+                    {"detail": "缺少 CSRF token(X-CSRF-Token header)"},
+                    status_code=403,
                 )(scope, receive, send)
                 return
         await self.app(scope, receive, send)

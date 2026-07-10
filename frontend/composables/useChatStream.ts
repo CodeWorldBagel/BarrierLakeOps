@@ -13,7 +13,8 @@ export const useChatStream = () => {
   ) => {
     const resp = await fetch(base + "/chat", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      // 改變狀態的請求一律夾帶 CSRF token(見 useCsrfToken.ts)
+      headers: { "content-type": "application/json", ...csrfHeaders() },
       body: JSON.stringify(payload),
     });
     if (!resp.body) throw new Error("no stream body");
